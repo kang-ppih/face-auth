@@ -19,7 +19,6 @@ from aws_cdk import (
     aws_iam as iam,
     aws_apigateway as apigateway,
     aws_cognito as cognito,
-    aws_directconnect as dx,
     aws_logs as logs,
     CfnOutput
 )
@@ -121,14 +120,14 @@ class FaceAuthStack(Stack):
         # Allow LDAPS traffic to on-premises AD (port 636)
         self.ad_security_group.add_egress_rule(
             peer=ec2.Peer.ipv4("10.0.0.0/8"),  # On-premises network range
-            port=ec2.Port.tcp(636),
+            connection=ec2.Port.tcp(636),
             description="LDAPS traffic to on-premises Active Directory"
         )
 
         # Allow LDAP traffic as fallback (port 389)
         self.ad_security_group.add_egress_rule(
             peer=ec2.Peer.ipv4("10.0.0.0/8"),
-            port=ec2.Port.tcp(389),
+            connection=ec2.Port.tcp(389),
             description="LDAP traffic to on-premises Active Directory"
         )
 
@@ -171,7 +170,7 @@ class FaceAuthStack(Stack):
         self.face_auth_bucket = s3.Bucket(
             self, "FaceAuthImageBucket",
             bucket_name=f"face-auth-images-{self.account}-{self.region}",
-            versioning=False,
+            versioned=False,
             encryption=s3.BucketEncryption.S3_MANAGED,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             removal_policy=RemovalPolicy.RETAIN,
@@ -305,11 +304,9 @@ class FaceAuthStack(Stack):
                 user_password=False,
                 user_srp=False
             ),
-            token_validity=cognito.TokenValidity(
-                access_token=Duration.hours(1),
-                id_token=Duration.hours(1),
-                refresh_token=Duration.days(30)
-            )
+            access_token_validity=Duration.hours(1),
+            id_token_validity=Duration.hours(1),
+            refresh_token_validity=Duration.days(30)
         )
 
     def _create_iam_roles(self):
@@ -445,8 +442,7 @@ class FaceAuthStack(Stack):
                 "REKOGNITION_COLLECTION_ID": "face-auth-employees",
                 "AD_TIMEOUT": "10",  # 10-second AD timeout
                 "LAMBDA_TIMEOUT": "15",  # 15-second Lambda timeout
-                "SESSION_TIMEOUT_HOURS": "8",  # 8-hour session timeout
-                "AWS_REGION": self.region
+                "SESSION_TIMEOUT_HOURS": "8"  # 8-hour session timeout
             }
         }
 
@@ -530,28 +526,23 @@ class FaceAuthStack(Stack):
 
         # Lambda integrations
         enrollment_integration = apigateway.LambdaIntegration(
-            self.enrollment_lambda,
-            request_timeout=Duration.seconds(29)  # API Gateway max timeout
+            self.enrollment_lambda
         )
 
         face_login_integration = apigateway.LambdaIntegration(
-            self.face_login_lambda,
-            request_timeout=Duration.seconds(29)
+            self.face_login_lambda
         )
 
         emergency_auth_integration = apigateway.LambdaIntegration(
-            self.emergency_auth_lambda,
-            request_timeout=Duration.seconds(29)
+            self.emergency_auth_lambda
         )
 
         re_enrollment_integration = apigateway.LambdaIntegration(
-            self.re_enrollment_lambda,
-            request_timeout=Duration.seconds(29)
+            self.re_enrollment_lambda
         )
 
         status_integration = apigateway.LambdaIntegration(
-            self.status_lambda,
-            request_timeout=Duration.seconds(29)
+            self.status_lambda
         )
 
         # API endpoints
