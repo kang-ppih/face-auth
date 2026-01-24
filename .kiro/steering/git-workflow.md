@@ -10,7 +10,7 @@ inclusion: always
 
 ### メインブランチ
 
-#### master
+#### main
 - **用途:** 本番環境用（安定版）
 - **保護:** 直接pushは禁止
 - **マージ:** Pull Request経由のみ
@@ -60,12 +60,12 @@ git push origin bugfix/fix-timeout-issue
 
 #### hotfix/* - 緊急修正（本番）
 ```bash
-# masterから直接作成
-git checkout master
+# mainから直接作成
+git checkout main
 git checkout -b hotfix/critical-security-fix
 
-# 修正後、masterとdevelopの両方にマージ
-git checkout master
+# 修正後、mainとdevelopの両方にマージ
+git checkout main
 git merge hotfix/critical-security-fix
 git checkout develop
 git merge hotfix/critical-security-fix
@@ -617,12 +617,12 @@ git commit -m "update"
 git commit -m "changes"
 ```
 
-❌ **masterへの直接プッシュ**
+❌ **mainへの直接プッシュ**
 ```bash
 # Bad
-git checkout master
+git checkout main
 git commit -m "feat: Add feature"
-git push origin master
+git push origin main
 ```
 
 ❌ **機密情報のコミット**
