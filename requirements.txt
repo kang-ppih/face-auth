@@ -1,0 +1,27 @@
+# AWS CDK and core dependencies
+aws-cdk-lib==2.100.0
+constructs>=10.0.0,<11.0.0
+
+# AWS SDK for Python
+boto3==1.34.0
+botocore==1.34.0
+
+# Image processing
+Pillow==10.1.0
+
+# LDAP for Active Directory
+python-ldap==3.4.3
+
+# Testing frameworks
+pytest==7.4.3
+pytest-asyncio==0.21.1
+hypothesis==6.88.1
+moto==4.2.14
+
+# JWT token handling
+PyJWT==2.8.0
+cryptography==41.0.7
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
