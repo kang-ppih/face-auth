@@ -149,17 +149,18 @@ class FaceAuthStack(Stack):
         # This would be configured separately in the AWS Console or via AWS CLI
         # as it requires coordination with network providers
         
-        # Create a Customer Gateway for the on-premises connection
-        self.customer_gateway = ec2.CfnCustomerGateway(
-            self, "OnPremisesCustomerGateway",
-            bgp_asn=65000,  # Private ASN for on-premises
-            ip_address="203.0.113.1",  # Placeholder public IP - replace with actual
-            type="ipsec.1",
-            tags=[{
-                "key": "Name",
-                "value": "FaceAuth-OnPremises-Gateway"
-            }]
-        )
+        # TODO: Configure Customer Gateway with actual on-premises IP address
+        # Uncomment and update ip_address when ready to establish Direct Connect
+        # self.customer_gateway = ec2.CfnCustomerGateway(
+        #     self, "OnPremisesCustomerGateway",
+        #     bgp_asn=65000,  # Private ASN for on-premises
+        #     ip_address="YOUR_ACTUAL_IP_HERE",  # Replace with actual on-premises gateway IP
+        #     type="ipsec.1",
+        #     tags=[{
+        #         "key": "Name",
+        #         "value": "FaceAuth-OnPremises-Gateway"
+        #     }]
+        # )
 
     def _create_s3_buckets(self):
         """
@@ -447,6 +448,7 @@ class FaceAuthStack(Stack):
                 "AD_TIMEOUT": "10",  # 10-second AD timeout
                 "LAMBDA_TIMEOUT": "15",  # 15-second Lambda timeout
                 "SESSION_TIMEOUT_HOURS": "8"  # 8-hour session timeout
+                # Note: AWS_REGION is automatically set by Lambda runtime
             }
         }
 
