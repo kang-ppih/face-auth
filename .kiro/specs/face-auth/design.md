@@ -1,53 +1,53 @@
-# 설계 문서
+# 設計ドキュメント
 
-## 개요
+## 概要
 
-Face-Auth IdP 시스템은 AWS 클라우드 인프라를 기반으로 한 엔터프라이즈급 직원 인증 시스템입니다. 이 시스템은 사원증 기반 신뢰 체인과 Amazon Rekognition을 활용한 1:N 얼굴 인식을 통해 무패스워드 인증을 제공합니다. 시스템은 세 가지 주요 인증 흐름을 지원합니다: 최초 등록/재등록, 일반 얼굴 로그인, 그리고 비상 인증입니다.
+Face-Auth IdP システムは、AWS クラウドインフラストラクチャを基盤としたエンタープライズグレードの社員認証システムです。このシステムは、社員証ベースの信頼チェーンと Amazon Rekognition を活用した 1:N 顔認識によるパスワードレス認証を提供します。システムは3つの主要な認証フローをサポートします：初回登録/再登録、通常の顔ログイン、および緊急認証です。
 
-핵심 설계 원칙:
-- **보안 우선**: AWS Direct Connect를 통한 온프레미스 AD 연결과 엄격한 타임아웃 제한
-- **확장성**: DynamoDB 기반 카드 템플릿 관리로 다양한 사원증 형식 지원
-- **비용 효율성**: S3 Lifecycle 정책을 통한 자동 데이터 관리
-- **사용자 경험**: 명확한 오류 메시징과 직관적인 React 기반 UI
+コア設計原則:
+- **セキュリティ優先**: AWS Direct Connect を通じたオンプレミス AD 接続と厳格なタイムアウト制限
+- **拡張性**: DynamoDB ベースのカードテンプレート管理により多様な社員証形式をサポート
+- **コスト効率**: S3 Lifecycle ポリシーによる自動データ管理
+- **ユーザーエクスペリエンス**: 明確なエラーメッセージングと直感的な React ベース UI
 
-## 아키텍처
+## アーキテクチャ
 
-### 전체 시스템 아키텍처
+### 全体システムアーキテクチャ
 
 ```mermaid
 graph TB
-    subgraph "사용자 인터페이스"
+    subgraph "ユーザーインターフェース"
         UI[React Frontend<br/>AWS Amplify]
     end
     
-    subgraph "AWS 클라우드"
-        subgraph "API Gateway & 인증"
+    subgraph "AWS クラウド"
+        subgraph "API Gateway & 認証"
             API[API Gateway]
-            COGNITO[AWS Cognito<br/>사용자 풀]
+            COGNITO[AWS Cognito<br/>ユーザープール]
         end
         
-        subgraph "컴퓨팅 계층"
+        subgraph "コンピューティング層"
             LAMBDA[Lambda Functions<br/>Python 3.9]
         end
         
-        subgraph "AI/ML 서비스"
-            REKOGNITION[Amazon Rekognition<br/>얼굴 인식 & Liveness]
-            TEXTRACT[Amazon Textract<br/>OCR 엔진]
+        subgraph "AI/ML サービス"
+            REKOGNITION[Amazon Rekognition<br/>顔認識 & Liveness]
+            TEXTRACT[Amazon Textract<br/>OCR エンジン]
         end
         
-        subgraph "데이터 저장"
-            S3[S3 버킷<br/>이미지 저장]
-            DYNAMO[DynamoDB<br/>카드 템플릿 & 메타데이터]
+        subgraph "データストレージ"
+            S3[S3 バケット<br/>画像保存]
+            DYNAMO[DynamoDB<br/>カードテンプレート & メタデータ]
         end
         
-        subgraph "네트워크"
-            VPC[VPC<br/>보안 그룹]
-            DX[Direct Connect<br/>온프레미스 연결]
+        subgraph "ネットワーク"
+            VPC[VPC<br/>セキュリティグループ]
+            DX[Direct Connect<br/>オンプレミス接続]
         end
     end
     
-    subgraph "온프레미스"
-        AD[Active Directory<br/>직원 정보]
+    subgraph "オンプレミス"
+        AD[Active Directory<br/>社員情報]
     end
     
     UI --> API
@@ -63,11 +63,11 @@ graph TB
     VPC --> LAMBDA
 ```
 
-### 인증 흐름 아키텍처
+### 認証フローアーキテクチャ
 
 ```mermaid
 sequenceDiagram
-    participant U as 사용자
+    participant U as ユーザー
     participant F as Frontend
     participant L as Lambda
     participant R as Rekognition
@@ -75,38 +75,38 @@ sequenceDiagram
     participant A as AD (Direct Connect)
     participant C as Cognito
     
-    Note over U,C: 1. 최초 등록 흐름
-    U->>F: 사원증 스캔
-    F->>L: 등록 요청
-    L->>T: OCR 처리
-    T-->>L: 직원 정보 추출
-    L->>A: AD 검증 (10초 타임아웃)
-    A-->>L: 검증 결과
-    L->>R: 얼굴 캡처 & Liveness
-    R-->>L: 얼굴 데이터 (신뢰도 > 90%)
-    L-->>F: 등록 완료
+    Note over U,C: 1. 初回登録フロー
+    U->>F: 社員証スキャン
+    F->>L: 登録リクエスト
+    L->>T: OCR 処理
+    T-->>L: 社員情報抽出
+    L->>A: AD 検証 (10秒タイムアウト)
+    A-->>L: 検証結果
+    L->>R: 顔キャプチャ & Liveness
+    R-->>L: 顔データ (信頼度 > 90%)
+    L-->>F: 登録完了
     
-    Note over U,C: 2. 일반 로그인 흐름
-    U->>F: 얼굴 스캔
-    F->>L: 로그인 요청
-    L->>R: 1:N 얼굴 매칭
-    R-->>L: 매칭 결과
-    L->>C: 세션 생성
-    C-->>F: 인증 토큰
+    Note over U,C: 2. 通常ログインフロー
+    U->>F: 顔スキャン
+    F->>L: ログインリクエスト
+    L->>R: 1:N 顔マッチング
+    R-->>L: マッチング結果
+    L->>C: セッション作成
+    C-->>F: 認証トークン
     
-    Note over U,C: 3. 비상 로그인 흐름
-    U->>F: 사원증 + 비밀번호
-    F->>L: 비상 인증 요청
-    L->>T: 사원증 OCR
-    L->>A: AD 비밀번호 검증
-    A-->>L: 인증 결과
-    L->>C: 세션 생성
-    C-->>F: 인증 토큰
+    Note over U,C: 3. 緊急ログインフロー
+    U->>F: 社員証 + パスワード
+    F->>L: 緊急認証リクエスト
+    L->>T: 社員証 OCR
+    L->>A: AD パスワード検証
+    A-->>L: 認証結果
+    L->>C: セッション作成
+    C-->>F: 認証トークン
 ```
 
-## 구성 요소 및 인터페이스
+## コンポーネントとインターフェース
 
-### 1. 프론트엔드 구성 요소 (React + AWS Amplify)
+### 1. フロントエンドコンポーネント (React + AWS Amplify)
 
 #### AuthenticationComponent
 ```typescript
@@ -123,11 +123,11 @@ interface AuthError {
 }
 ```
 
-**주요 기능:**
-- FaceLivenessDetector 통합
-- 실시간 캡처 피드백
-- 다중 인증 모드 지원
-- 오류 메시지 현지화
+**主要機能:**
+- FaceLivenessDetector 統合
+- リアルタイムキャプチャフィードバック
+- 複数認証モードサポート
+- エラーメッセージのローカライゼーション
 
 #### CameraController
 ```typescript
@@ -138,19 +138,19 @@ interface CameraConfig {
 }
 ```
 
-### 2. API Gateway 및 Lambda 함수
+### 2. API Gateway と Lambda 関数
 
-#### 주요 엔드포인트
+#### 主要エンドポイント
 ```python
-# API 엔드포인트 구조
-POST /auth/enroll          # 최초 등록
-POST /auth/login           # 얼굴 로그인
-POST /auth/emergency       # 비상 인증
-POST /auth/re-enroll       # 재등록
-GET  /auth/status          # 인증 상태 확인
+# API エンドポイント構造
+POST /auth/enroll          # 初回登録
+POST /auth/login           # 顔ログイン
+POST /auth/emergency       # 緊急認証
+POST /auth/re-enroll       # 再登録
+GET  /auth/status          # 認証ステータス確認
 ```
 
-#### Lambda 함수 구조
+#### Lambda 関数構造
 ```python
 class AuthHandler:
     def __init__(self):
@@ -158,31 +158,31 @@ class AuthHandler:
         self.textract = boto3.client('textract')
         self.s3 = boto3.client('s3')
         self.dynamodb = boto3.resource('dynamodb')
-        self.timeout = 15  # 전체 Lambda 타임아웃
+        self.timeout = 15  # 全体 Lambda タイムアウト
         
     def handle_enrollment(self, event, context):
-        # 1. 사원증 OCR 처리
-        # 2. AD 검증 (10초 타임아웃)
-        # 3. 얼굴 캡처 및 Liveness 검증
-        # 4. 썸네일 생성 및 S3 저장
+        # 1. 社員証 OCR 処理
+        # 2. AD 検証 (10秒タイムアウト)
+        # 3. 顔キャプチャおよび Liveness 検証
+        # 4. サムネイル生成および S3 保存
         pass
         
     def handle_face_login(self, event, context):
-        # 1. 얼굴 Liveness 검증
-        # 2. 1:N 얼굴 매칭
-        # 3. Cognito 세션 생성
+        # 1. 顔 Liveness 検証
+        # 2. 1:N 顔マッチング
+        # 3. Cognito セッション作成
         pass
         
     def handle_emergency_auth(self, event, context):
-        # 1. 사원증 OCR
-        # 2. AD 비밀번호 검증
-        # 3. Cognito 세션 생성
+        # 1. 社員証 OCR
+        # 2. AD パスワード検証
+        # 3. Cognito セッション作成
         pass
 ```
 
-### 3. Amazon Rekognition 통합
+### 3. Amazon Rekognition 統合
 
-#### 얼굴 인식 서비스
+#### 顔認識サービス
 ```python
 class FaceRecognitionService:
     def __init__(self):
@@ -190,7 +190,7 @@ class FaceRecognitionService:
         self.confidence_threshold = 90.0
         
     def detect_liveness(self, image_bytes: bytes) -> LivenessResult:
-        """Liveness 감지 (신뢰도 > 90% 요구)"""
+        """Liveness 検出 (信頼度 > 90% 要求)"""
         response = self.rekognition.detect_faces(
             Image={'Bytes': image_bytes},
             Attributes=['ALL']
@@ -198,7 +198,7 @@ class FaceRecognitionService:
         return self._process_liveness_result(response)
         
     def search_faces(self, image_bytes: bytes) -> List[FaceMatch]:
-        """1:N 얼굴 검색"""
+        """1:N 顔検索"""
         response = self.rekognition.search_faces_by_image(
             CollectionId=self.collection_id,
             Image={'Bytes': image_bytes},
@@ -207,7 +207,7 @@ class FaceRecognitionService:
         return response['FaceMatches']
         
     def index_face(self, image_bytes: bytes, employee_id: str) -> str:
-        """얼굴 등록"""
+        """顔登録"""
         response = self.rekognition.index_faces(
             CollectionId=self.collection_id,
             Image={'Bytes': image_bytes},
@@ -216,17 +216,17 @@ class FaceRecognitionService:
         return response['FaceRecords'][0]['Face']['FaceId']
 ```
 
-### 4. Amazon Textract OCR 엔진
+### 4. Amazon Textract OCR エンジン
 
-#### OCR 처리 서비스
+#### OCR 処理サービス
 ```python
 class OCRService:
     def __init__(self):
         self.textract = boto3.client('textract')
         
     def extract_id_card_info(self, image_bytes: bytes, template: CardTemplate) -> EmployeeInfo:
-        """카드 템플릿 기반 정보 추출"""
-        # Textract Queries 동적 구성
+        """カードテンプレートベースの情報抽出"""
+        # Textract Queries 動的構成
         queries = self._build_queries_from_template(template)
         
         response = self.textract.analyze_document(
@@ -238,7 +238,7 @@ class OCRService:
         return self._parse_textract_response(response, template)
         
     def _build_queries_from_template(self, template: CardTemplate) -> List[Dict]:
-        """템플릿 기반 쿼리 구성"""
+        """テンプレートベースのクエリ構成"""
         queries = []
         for field in template.fields:
             queries.append({
@@ -248,24 +248,24 @@ class OCRService:
         return queries
 ```
 
-### 5. 데이터 저장 계층
+### 5. データストレージ層
 
-#### S3 버킷 구조
+#### S3 バケット構造
 ```
 face-auth-bucket/
-├── enroll/                    # 등록 썸네일 (영구 보관)
+├── enroll/                    # 登録サムネイル (永久保管)
 │   ├── {employee_id}/
 │   │   └── face_thumbnail.jpg (200x200)
-├── logins/                    # 로그인 시도 이미지 (30일 보관)
+├── logins/                    # ログイン試行画像 (30日保管)
 │   ├── {date}/
 │   │   └── {timestamp}_{employee_id}.jpg
-└── temp/                      # 임시 처리 파일
+└── temp/                      # 一時処理ファイル
     └── {session_id}/
 ```
 
-#### DynamoDB 테이블 설계
+#### DynamoDB テーブル設計
 
-**CardTemplates 테이블**
+**CardTemplates テーブル**
 ```python
 {
     "pattern_id": "company_card_v1",
@@ -274,13 +274,13 @@ face-auth-bucket/
     "fields": [
         {
             "field_name": "employee_id",
-            "query_phrase": "사번은 무엇입니까?",
+            "query_phrase": "社員番号は何ですか？",
             "expected_format": "\\d{6}"
         },
         {
             "field_name": "employee_name", 
-            "query_phrase": "성명은 무엇입니까?",
-            "expected_format": "[가-힣]{2,4}"
+            "query_phrase": "氏名は何ですか？",
+            "expected_format": "[ぁ-んァ-ヶ一-龠々]{2,4}"
         }
     ],
     "created_at": "2024-01-01T00:00:00Z",
@@ -288,7 +288,7 @@ face-auth-bucket/
 }
 ```
 
-**EmployeeFaces 테이블**
+**EmployeeFaces テーブル**
 ```python
 {
     "employee_id": "123456",
@@ -301,18 +301,18 @@ face-auth-bucket/
 }
 ```
 
-### 6. Active Directory 연결
+### 6. Active Directory 接続
 
-#### AD 커넥터 서비스
+#### AD コネクターサービス
 ```python
 class ADConnector:
     def __init__(self):
         self.server_url = "ldaps://ad.company.com"
-        self.timeout = 10  # AD 연결 타임아웃
+        self.timeout = 10  # AD 接続タイムアウト
         self.base_dn = "ou=employees,dc=company,dc=com"
         
     def verify_employee(self, employee_id: str, extracted_info: Dict) -> ADVerificationResult:
-        """직원 정보 AD 검증"""
+        """社員情報 AD 検証"""
         try:
             server = Server(self.server_url, get_info=ALL, connect_timeout=self.timeout)
             with Connection(server, auto_bind=True) as conn:
@@ -332,7 +332,7 @@ class ADConnector:
             return ADVerificationResult(success=False, reason="ad_connection_error", error=str(e))
             
     def authenticate_password(self, employee_id: str, password: str) -> bool:
-        """AD 비밀번호 인증"""
+        """AD パスワード認証"""
         try:
             user_dn = f"cn={employee_id},{self.base_dn}"
             server = Server(self.server_url, connect_timeout=self.timeout)
@@ -342,9 +342,9 @@ class ADConnector:
             return False
 ```
 
-## 데이터 모델
+## データモデル
 
-### 1. 핵심 데이터 구조
+### 1. コアデータ構造
 
 #### EmployeeInfo
 ```python
@@ -357,7 +357,7 @@ class EmployeeInfo:
     extracted_confidence: float
     
     def validate(self) -> bool:
-        """추출된 정보 유효성 검증"""
+        """抽出された情報の妥当性検証"""
         return (
             len(self.employee_id) == 6 and
             self.employee_id.isdigit() and
@@ -378,7 +378,7 @@ class FaceData:
     thumbnail_s3_key: str
     
     def to_rekognition_format(self) -> Dict:
-        """Rekognition API 형식으로 변환"""
+        """Rekognition API 形式に変換"""
         return {
             'FaceId': self.face_id,
             'BoundingBox': self.bounding_box,
@@ -398,11 +398,11 @@ class AuthenticationSession:
     cognito_token: str
     
     def is_valid(self) -> bool:
-        """세션 유효성 확인"""
+        """セッション有効性確認"""
         return datetime.now() < self.expires_at
 ```
 
-### 2. 이미지 처리 모델
+### 2. 画像処理モデル
 
 #### ThumbnailProcessor
 ```python
@@ -411,24 +411,24 @@ class ThumbnailProcessor:
     QUALITY = 85
     
     def create_thumbnail(self, image_bytes: bytes) -> bytes:
-        """200x200 썸네일 생성"""
+        """200x200 サムネイル生成"""
         with Image.open(BytesIO(image_bytes)) as img:
-            # 비율 유지하며 리사이즈
+            # 比率を維持してリサイズ
             img.thumbnail(self.TARGET_SIZE, Image.Resampling.LANCZOS)
             
-            # 정사각형으로 패딩
+            # 正方形にパディング
             padded_img = Image.new('RGB', self.TARGET_SIZE, (255, 255, 255))
             offset = ((self.TARGET_SIZE[0] - img.size[0]) // 2,
                      (self.TARGET_SIZE[1] - img.size[1]) // 2)
             padded_img.paste(img, offset)
             
-            # JPEG로 압축
+            # JPEG で圧縮
             output = BytesIO()
             padded_img.save(output, format='JPEG', quality=self.QUALITY)
             return output.getvalue()
 ```
 
-### 3. 오류 처리 모델
+### 3. エラー処理モデル
 
 #### ErrorResponse
 ```python
@@ -448,7 +448,7 @@ class ErrorResponse:
             'request_id': self.request_id
         }
 
-# 오류 코드 정의
+# エラーコード定義
 class ErrorCodes:
     ID_CARD_FORMAT_MISMATCH = "ID_CARD_FORMAT_MISMATCH"
     REGISTRATION_INFO_MISMATCH = "REGISTRATION_INFO_MISMATCH" 
@@ -459,158 +459,158 @@ class ErrorCodes:
     GENERIC_ERROR = "GENERIC_ERROR"
 ```
 
-## 정확성 속성 (Correctness Properties)
+## 正確性プロパティ (Correctness Properties)
 
-*속성(Property)은 시스템의 모든 유효한 실행에서 참이어야 하는 특성 또는 동작입니다. 본질적으로 시스템이 수행해야 하는 작업에 대한 공식적인 명세입니다. 속성은 사람이 읽을 수 있는 사양과 기계가 검증할 수 있는 정확성 보장 사이의 다리 역할을 합니다.*
+*プロパティ(Property)は、システムのすべての有効な実行において真でなければならない特性または動作です。本質的に、システムが実行すべき作業に対する形式的な仕様です。プロパティは、人間が読める仕様と機械が検証できる正確性保証の橋渡しの役割を果たします。*
 
-### 속성 1: OCR 엔진 사용 일관성
-*모든* 신분증 처리 요청(등록, 재등록, 비상 인증)에 대해, 시스템은 Amazon Textract OCR 엔진을 사용해야 한다
-**검증 대상: 요구사항 1.1, 3.2, 7.1, 9.1**
+### プロパティ 1: OCR エンジン使用の一貫性
+*すべての* 身分証処理リクエスト(登録、再登録、緊急認証)に対して、システムは Amazon Textract OCR エンジンを使用しなければならない
+**検証対象: 要件 1.1, 3.2, 7.1, 9.1**
 
-### 속성 2: 카드 템플릿 기반 처리
-*모든* OCR 처리에 대해, 시스템은 DynamoDB에서 Card_Template 패턴을 조회하고 이를 사용하여 Textract Query를 구성해야 한다
-**검증 대상: 요구사항 1.2, 7.2**
+### プロパティ 2: カードテンプレートベース処理
+*すべての* OCR 処理に対して、システムは DynamoDB から Card_Template パターンを取得し、これを使用して Textract Query を構成しなければならない
+**検証対象: 要件 1.2, 7.2**
 
-### 속성 3: AD 연결 타임아웃 준수
-*모든* Active Directory 연결 및 인증 요청에 대해, AD_Connector는 10초 이내에 완료되어야 한다
-**검증 대상: 요구사항 1.3, 3.4, 4.2**
+### プロパティ 3: AD 接続タイムアウト遵守
+*すべての* Active Directory 接続および認証リクエストに対して、AD_Connector は 10秒以内に完了しなければならない
+**検証対象: 要件 1.3, 3.4, 4.2**
 
-### 속성 4: Liveness Detection 필수 사용
-*모든* 얼굴 캡처 작업에 대해, 시스템은 Amazon Rekognition Liveness Detection을 사용하고 90%보다 큰 신뢰도를 요구해야 한다
-**검증 대상: 요구사항 2.1, 6.1, 6.2**
+### プロパティ 4: Liveness Detection 必須使用
+*すべての* 顔キャプチャ作業に対して、システムは Amazon Rekognition Liveness Detection を使用し、90%より大きい信頼度を要求しなければならない
+**検証対象: 要件 2.1, 6.1, 6.2**
 
-### 속성 5: 1:N 얼굴 매칭 수행
-*모든* 성공적인 얼굴 캡처(신뢰도 > 90%)에 대해, Face_Matcher는 등록된 모든 Face_Data에 대해 Amazon Rekognition을 사용한 1:N 매칭을 수행해야 한다
-**검증 대상: 요구사항 2.2, 6.4**
+### プロパティ 5: 1:N 顔マッチング実行
+*すべての* 成功した顔キャプチャ(信頼度 > 90%)に対して、Face_Matcher は登録されたすべての Face_Data に対して Amazon Rekognition を使用した 1:N マッチングを実行しなければならない
+**検証対象: 要件 2.2, 6.4**
 
-### 속성 6: 인증 세션 생성
-*모든* 성공적인 인증(얼굴 매칭 또는 AD 인증)에 대해, 시스템은 AWS Cognito를 통해 Authentication_Session을 생성해야 한다
-**검증 대상: 요구사항 2.3, 3.5**
+### プロパティ 6: 認証セッション作成
+*すべての* 成功した認証(顔マッチングまたは AD 認証)に対して、システムは AWS Cognito を通じて Authentication_Session を作成しなければならない
+**検証対象: 要件 2.3, 3.5**
 
-### 속성 7: 실패한 로그인 시도 저장
-*모든* 실패한 얼굴 매칭에 대해, 시스템은 Login_Attempt_Image를 썸네일로 변환하여 S3 logins/ 폴더에 저장해야 한다
-**검증 대상: 요구사항 2.4, 5.3**
+### プロパティ 7: 失敗したログイン試行の保存
+*すべての* 失敗した顔マッチングに対して、システムは Login_Attempt_Image をサムネイルに変換して S3 logins/ フォルダに保存しなければならない
+**検証対象: 要件 2.4, 5.3**
 
-### 속성 8: 비상 로그인 옵션 제공
-*모든* 얼굴 인식 실패에 대해, 시스템은 사용자에게 비상 인증 옵션을 제공해야 한다
-**검증 대상: 요구사항 2.6, 3.1**
+### プロパティ 8: 緊急ログインオプション提供
+*すべての* 顔認識失敗に対して、システムはユーザーに緊急認証オプションを提供しなければならない
+**検証対象: 要件 2.6, 3.1**
 
-### 속성 9: 썸네일 처리 일관성
-*모든* 등록 및 로그인 이미지에 대해, Thumbnail_Processor는 200x200 픽셀 썸네일을 생성하고 원본 이미지를 삭제해야 한다
-**검증 대상: 요구사항 1.5, 5.1**
+### プロパティ 9: サムネイル処理の一貫性
+*すべての* 登録およびログイン画像に対して、Thumbnail_Processor は 200x200 ピクセルのサムネイルを生成し、元の画像を削除しなければならない
+**検証対象: 要件 1.5, 5.1**
 
-### 속성 10: 구체적 오류 메시지 반환
-*모든* 시스템 판단 오류(카드 형식 불일치, 등록 정보 불일치, 계정 비활성화)에 대해, 시스템은 해당하는 구체적인 오류 메시지를 반환해야 한다
-**검증 대상: 요구사항 1.6, 1.7, 1.8, 8.2, 8.3, 8.4**
+### プロパティ 10: 具体的エラーメッセージ返却
+*すべての* システム判断エラー(カード形式不一致、登録情報不一致、アカウント無効化)に対して、システムは対応する具体的なエラーメッセージを返却しなければならない
+**検証対象: 要件 1.6, 1.7, 1.8, 8.2, 8.3, 8.4**
 
-### 속성 11: 일반적 오류 메시지 표시
-*모든* 기술적 문제(Liveness 실패, 조명, 카메라, 네트워크 문제)에 대해, 시스템은 "밝은 곳에서 다시 시도해주세요" 메시지를 표시해야 한다
-**검증 대상: 요구사항 2.7, 3.7, 8.5**
+### プロパティ 11: 一般的エラーメッセージ表示
+*すべての* 技術的問題(Liveness 失敗、照明、カメラ、ネットワーク問題)に対して、システムは「明るい場所で再度お試しください」メッセージを表示しなければならない
+**検証対象: 要件 2.7, 3.7, 8.5**
 
-### 속성 12: Lambda 타임아웃 준수
-*모든* Lambda 함수 실행에 대해, 시스템은 15초 총 타임아웃 내에 모든 작업을 완료해야 한다
-**검증 대상: 요구사항 4.3**
+### プロパティ 12: Lambda タイムアウト遵守
+*すべての* Lambda 関数実行に対して、システムは 15秒の総タイムアウト内にすべての作業を完了しなければならない
+**検証対象: 要件 4.3**
 
-### 속성 13: 데이터 암호화 적용
-*모든* Face_Data 저장 및 전송에 대해, 시스템은 AWS 암호화 표준을 사용해야 한다
-**검증 대상: 요구사항 4.6, 5.6**
+### プロパティ 13: データ暗号化適用
+*すべての* Face_Data 保存および転送に対して、システムは AWS 暗号化標準を使用しなければならない
+**検証対象: 要件 4.6, 5.6**
 
-### 속성 14: 접근 제어 및 감사 로깅
-*모든* Face_Data 접근에 대해, 시스템은 적절한 접근 제어를 적용하고 타임스탬프와 함께 감사 로그를 기록해야 한다
-**검증 대상: 요구사항 5.7, 6.7**
+### プロパティ 14: アクセス制御および監査ログ
+*すべての* Face_Data アクセスに対して、システムは適切なアクセス制御を適用し、タイムスタンプとともに監査ログを記録しなければならない
+**検証対象: 要件 5.7, 6.7**
 
-### 속성 15: 카드 템플릿 데이터 구조
-*모든* Card_Template 레코드에 대해, 시스템은 로고 위치와 Textract Query 문구를 포함한 완전한 데이터 구조를 저장해야 한다
-**검증 대상: 요구사항 7.4**
+### プロパティ 15: カードテンプレートデータ構造
+*すべての* Card_Template レコードに対して、システムはロゴ位置と Textract Query フレーズを含む完全なデータ構造を保存しなければならない
+**検証対象: 要件 7.4**
 
-### 속성 16: 동적 쿼리 구성
-*모든* Textract 처리에 대해, 시스템은 카드 패턴을 기반으로 동적으로 Query를 구성해야 한다
-**검증 대상: 요구사항 7.6**
+### プロパティ 16: 動的クエリ構成
+*すべての* Textract 処理に対して、システムはカードパターンを基に動的に Query を構成しなければならない
+**検証対象: 要件 7.6**
 
-### 속성 17: 런타임 템플릿 업데이트
-*모든* 카드 템플릿 업데이트에 대해, 시스템은 재시작 없이 변경 사항을 적용해야 한다
-**검증 대상: 요구사항 7.7**
+### プロパティ 17: ランタイムテンプレート更新
+*すべての* カードテンプレート更新に対して、システムは再起動なしに変更を適用しなければならない
+**検証対象: 要件 7.7**
 
-### 속성 18: 오류 응답 구조 분리
-*모든* 오류 응답에 대해, 시스템은 system_reason(로깅용)과 user_message(표시용)를 분리해야 한다
-**검증 대상: 요구사항 8.6**
+### プロパティ 18: エラーレスポンス構造分離
+*すべての* エラーレスポンスに対して、システムは system_reason(ログ用)と user_message(表示用)を分離しなければならない
+**検証対象: 要件 8.6**
 
-### 속성 19: 상세 오류 로깅
-*모든* 오류 기록에 대해, 시스템은 문제 해결을 위한 상세한 기술 정보를 포함해야 한다
-**검증 대상: 요구사항 8.7**
+### プロパティ 19: 詳細エラーログ
+*すべての* エラー記録に対して、システムは問題解決のための詳細な技術情報を含めなければならない
+**検証対象: 要件 8.7**
 
-### 속성 20: 재등록 데이터 교체
-*모든* 성공적인 재등록에 대해, 시스템은 기존 Face_Data를 새로운 썸네일로 교체하고 감사 추적을 기록해야 한다
-**검증 대상: 요구사항 9.3, 9.5**
+### プロパティ 20: 再登録データ置換
+*すべての* 成功した再登録に対して、システムは既存の Face_Data を新しいサムネイルで置換し、監査追跡を記録しなければならない
+**検証対象: 要件 9.3, 9.5**
 
-### 속성 21: 재등록 실패 시 데이터 보존
-*모든* 실패한 재등록에 대해, 시스템은 기존 Face_Data를 변경하지 않고 보존해야 한다
-**검증 대상: 요구사항 9.6**
+### プロパティ 21: 再登録失敗時のデータ保存
+*すべての* 失敗した再登録に対して、システムは既存の Face_Data を変更せずに保存しなければならない
+**検証対象: 要件 9.6**
 
-### 속성 22: UI 모드 지원
-*모든* 인증 모드 선택에 대해, 시스템은 LOGIN, ENROLL, ID_SCAN 모드를 지원해야 한다
-**검증 대상: 요구사항 10.3**
+### プロパティ 22: UI モードサポート
+*すべての* 認証モード選択に対して、システムは LOGIN, ENROLL, ID_SCAN モードをサポートしなければならない
+**検証対象: 要件 10.3**
 
-### 속성 23: 성공적 인증 후 리디렉션
-*모든* 성공적인 인증에 대해, 시스템은 적절한 보호된 리소스로 리디렉션해야 한다
-**검증 대상: 요구사항 10.7**
+### プロパティ 23: 成功した認証後のリダイレクト
+*すべての* 成功した認証に対して、システムは適切な保護されたリソースにリダイレクトしなければならない
+**検証対象: 要件 10.7**
 
-### 속성 24: 속도 제한 구현
-*모든* 반복적인 인증 실패에 대해, 시스템은 보안을 위한 점진적 속도 제한을 구현해야 한다
-**검증 대상: 요구사항 3.6, 6.6**
+### プロパティ 24: レート制限実装
+*すべての* 繰り返し認証失敗に対して、システムはセキュリティのための段階的レート制限を実装しなければならない
+**検証対象: 要件 3.6, 6.6**
 
-## 오류 처리
+## エラー処理
 
-### 오류 분류 체계
+### エラー分類体系
 
-#### 1. 시스템 판단 오류 (구체적 메시지)
-- **ID_CARD_FORMAT_MISMATCH**: "사원증 규격 불일치"
-- **REGISTRATION_INFO_MISMATCH**: "등록 정보 불일치"  
-- **ACCOUNT_DISABLED**: "계정 비활성화"
+#### 1. システム判断エラー (具体的メッセージ)
+- **ID_CARD_FORMAT_MISMATCH**: "社員証規格不一致"
+- **REGISTRATION_INFO_MISMATCH**: "登録情報不一致"  
+- **ACCOUNT_DISABLED**: "アカウント無効化"
 
-#### 2. 기술적 문제 (일반적 메시지)
-- **LIVENESS_FAILED**: "밝은 곳에서 다시 시도해주세요"
-- **CAMERA_ERROR**: "밝은 곳에서 다시 시도해주세요"
-- **NETWORK_ERROR**: "밝은 곳에서 다시 시도해주세요"
+#### 2. 技術的問題 (一般的メッセージ)
+- **LIVENESS_FAILED**: "明るい場所で再度お試しください"
+- **CAMERA_ERROR**: "明るい場所で再度お試しください"
+- **NETWORK_ERROR**: "明るい場所で再度お試しください"
 
-#### 3. 시스템 오류 (내부 처리)
-- **AD_CONNECTION_TIMEOUT**: AD 연결 10초 초과
-- **LAMBDA_TIMEOUT**: Lambda 15초 초과
-- **REKOGNITION_ERROR**: Amazon Rekognition 서비스 오류
-- **TEXTRACT_ERROR**: Amazon Textract 서비스 오류
+#### 3. システムエラー (内部処理)
+- **AD_CONNECTION_TIMEOUT**: AD 接続 10秒超過
+- **LAMBDA_TIMEOUT**: Lambda 15秒超過
+- **REKOGNITION_ERROR**: Amazon Rekognition サービスエラー
+- **TEXTRACT_ERROR**: Amazon Textract サービスエラー
 
-### 오류 처리 전략
+### エラー処理戦略
 
 ```python
 class ErrorHandler:
     def __init__(self):
         self.error_mappings = {
-            # 시스템 판단 오류
+            # システム判断エラー
             "ID_CARD_FORMAT_MISMATCH": {
-                "user_message": "사원증 규격 불일치",
+                "user_message": "社員証規格不一致",
                 "system_reason": "No matching card template found",
                 "retry_allowed": True
             },
             "REGISTRATION_INFO_MISMATCH": {
-                "user_message": "등록 정보 불일치", 
+                "user_message": "登録情報不一致", 
                 "system_reason": "Employee data mismatch with AD records",
                 "retry_allowed": True
             },
             "ACCOUNT_DISABLED": {
-                "user_message": "계정 비활성화",
+                "user_message": "アカウント無効化",
                 "system_reason": "AD account is disabled",
                 "retry_allowed": False
             },
-            # 기술적 문제
+            # 技術的問題
             "LIVENESS_FAILED": {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Liveness detection confidence < 90%",
                 "retry_allowed": True
             }
         }
         
     def handle_error(self, error_code: str, context: Dict) -> ErrorResponse:
-        """통합 오류 처리"""
+        """統合エラー処理"""
         mapping = self.error_mappings.get(error_code, self._get_default_error())
         
         return ErrorResponse(
@@ -623,7 +623,7 @@ class ErrorHandler:
         )
 ```
 
-### 타임아웃 관리
+### タイムアウト管理
 
 ```python
 class TimeoutManager:
@@ -634,38 +634,38 @@ class TimeoutManager:
         self.start_time = time.time()
         
     def check_ad_timeout(self) -> bool:
-        """AD 연결 타임아웃 확인"""
+        """AD 接続タイムアウト確認"""
         elapsed = time.time() - self.start_time
         return elapsed < self.AD_TIMEOUT
         
     def check_lambda_timeout(self) -> bool:
-        """Lambda 전체 타임아웃 확인"""
+        """Lambda 全体タイムアウト確認"""
         elapsed = time.time() - self.start_time
         return elapsed < self.LAMBDA_TIMEOUT
         
     def get_remaining_time(self) -> float:
-        """남은 시간 반환"""
+        """残り時間を返却"""
         elapsed = time.time() - self.start_time
         return max(0, self.LAMBDA_TIMEOUT - elapsed)
 ```
 
-## 테스팅 전략
+## テスト戦略
 
-### 이중 테스팅 접근법
+### 二重テストアプローチ
 
-시스템의 포괄적인 검증을 위해 단위 테스트와 속성 기반 테스트를 모두 사용합니다:
+システムの包括的な検証のため、ユニットテストとプロパティベーステストの両方を使用します:
 
-- **단위 테스트**: 구체적인 예제, 엣지 케이스, 오류 조건 검증
-- **속성 테스트**: 모든 입력에 대한 범용 속성 검증
-- 두 접근법은 상호 보완적입니다 (단위 테스트는 구체적인 버그를 잡고, 속성 테스트는 일반적인 정확성을 검증)
+- **ユニットテスト**: 具体的な例、エッジケース、エラー条件の検証
+- **プロパティテスト**: すべての入力に対する汎用プロパティの検証
+- 両アプローチは相互補完的です (ユニットテストは具体的なバグを捕捉し、プロパティテストは一般的な正確性を検証)
 
-### 속성 기반 테스트 구성
+### プロパティベーステスト構成
 
-**테스트 라이브러리**: Python의 `hypothesis` 라이브러리 사용
-**테스트 반복 횟수**: 속성당 최소 100회 반복 (무작위화로 인한)
-**태그 형식**: **Feature: face-auth, Property {번호}: {속성 텍스트}**
+**テストライブラリ**: Python の `hypothesis` ライブラリを使用
+**テスト反復回数**: プロパティあたり最低 100回反復 (ランダム化による)
+**タグ形式**: **Feature: face-auth, Property {番号}: {プロパティテキスト}**
 
-#### 예제 속성 테스트
+#### プロパティテスト例
 
 ```python
 from hypothesis import given, strategies as st
@@ -676,31 +676,31 @@ class TestFaceAuthProperties:
     @given(st.binary(min_size=1000, max_size=10000))
     def test_property_1_ocr_engine_consistency(self, id_card_image):
         """
-        Feature: face-auth, Property 1: OCR 엔진 사용 일관성
-        모든 신분증 처리 요청에 대해 Amazon Textract OCR 엔진 사용
+        Feature: face-auth, Property 1: OCR エンジン使用の一貫性
+        すべての身分証処理リクエストに対して Amazon Textract OCR エンジン使用
         """
-        # Given: 임의의 신분증 이미지
+        # Given: 任意の身分証画像
         request = EnrollmentRequest(id_card_image=id_card_image)
         
-        # When: 등록 처리
+        # When: 登録処理
         with patch('boto3.client') as mock_boto:
             mock_textract = mock_boto.return_value
             handler = AuthHandler()
             handler.process_id_card(request)
             
-        # Then: Textract가 호출되어야 함
+        # Then: Textract が呼び出されるべき
         mock_textract.analyze_document.assert_called_once()
         
     @given(st.binary(min_size=1000, max_size=10000))
     def test_property_4_liveness_detection_required(self, face_image):
         """
-        Feature: face-auth, Property 4: Liveness Detection 필수 사용
-        모든 얼굴 캡처에 대해 Liveness Detection 사용 및 90% 신뢰도 요구
+        Feature: face-auth, Property 4: Liveness Detection 必須使用
+        すべての顔キャプチャに対して Liveness Detection 使用および 90% 信頼度要求
         """
-        # Given: 임의의 얼굴 이미지
+        # Given: 任意の顔画像
         request = FaceLoginRequest(face_image=face_image)
         
-        # When: 얼굴 로그인 처리
+        # When: 顔ログイン処理
         with patch('boto3.client') as mock_boto:
             mock_rekognition = mock_boto.return_value
             mock_rekognition.detect_faces.return_value = {
@@ -710,7 +710,7 @@ class TestFaceAuthProperties:
             handler = AuthHandler()
             result = handler.process_face_login(request)
             
-        # Then: Rekognition detect_faces가 호출되어야 함
+        # Then: Rekognition detect_faces が呼び出されるべき
         mock_rekognition.detect_faces.assert_called_once()
         call_args = mock_rekognition.detect_faces.call_args
         assert 'Attributes' in call_args[1]
@@ -718,60 +718,60 @@ class TestFaceAuthProperties:
     @given(st.integers(min_value=1, max_value=1000))
     def test_property_12_lambda_timeout_compliance(self, processing_time):
         """
-        Feature: face-auth, Property 12: Lambda 타임아웃 준수
-        모든 Lambda 실행이 15초 내에 완료
+        Feature: face-auth, Property 12: Lambda タイムアウト遵守
+        すべての Lambda 実行が 15秒以内に完了
         """
-        # Given: 임의의 처리 시간을 가진 요청
+        # Given: 任意の処理時間を持つリクエスト
         request = AuthRequest()
         
-        # When: 타임아웃 관리자로 처리
+        # When: タイムアウトマネージャーで処理
         timeout_manager = TimeoutManager()
         start_time = time.time()
         
-        # Simulate processing
-        time.sleep(min(processing_time / 1000, 0.1))  # 최대 0.1초로 제한
+        # 処理をシミュレート
+        time.sleep(min(processing_time / 1000, 0.1))  # 最大 0.1秒に制限
         
-        # Then: 15초 제한 내에 있어야 함
+        # Then: 15秒制限内にあるべき
         elapsed = time.time() - start_time
         assert timeout_manager.check_lambda_timeout()
         assert elapsed < TimeoutManager.LAMBDA_TIMEOUT
 ```
 
-### 단위 테스트 전략
+### ユニットテスト戦略
 
-**구체적인 예제 테스트**:
-- 알려진 사원증 형식으로 등록 테스트
-- 특정 오류 조건 (비활성 계정, 형식 불일치) 테스트
-- 경계값 테스트 (정확히 90% 신뢰도, 10초 타임아웃)
+**具体的な例のテスト**:
+- 既知の社員証形式での登録テスト
+- 特定のエラー条件 (無効アカウント、形式不一致) テスト
+- 境界値テスト (正確に 90% 信頼度、10秒タイムアウト)
 
-**통합 테스트**:
-- AWS 서비스 간 연동 테스트
-- 전체 인증 흐름 테스트
-- 오류 복구 시나리오 테스트
+**統合テスト**:
+- AWS サービス間連携テスト
+- 完全な認証フローテスト
+- エラー回復シナリオテスト
 
-**성능 테스트**:
-- 동시 사용자 부하 테스트
-- 메모리 사용량 모니터링
-- AWS 서비스 제한 테스트
+**パフォーマンステスト**:
+- 同時ユーザー負荷テスト
+- メモリ使用量モニタリング
+- AWS サービス制限テスト
 
-### 테스트 데이터 관리
+### テストデータ管理
 
 ```python
 class TestDataGenerator:
-    """테스트용 데이터 생성기"""
+    """テスト用データ生成器"""
     
     def generate_employee_id_card(self, card_type: str = "standard") -> bytes:
-        """테스트용 사원증 이미지 생성"""
-        # PIL을 사용하여 테스트용 사원증 이미지 생성
+        """テスト用社員証画像生成"""
+        # PIL を使用してテスト用社員証画像を生成
         pass
         
     def generate_face_image(self, confidence_level: float = 95.0) -> bytes:
-        """테스트용 얼굴 이미지 생성"""
-        # 지정된 신뢰도 수준의 테스트용 얼굴 이미지 생성
+        """テスト用顔画像生成"""
+        # 指定された信頼度レベルのテスト用顔画像を生成
         pass
         
     def generate_card_template(self) -> CardTemplate:
-        """테스트용 카드 템플릿 생성"""
+        """テスト用カードテンプレート生成"""
         return CardTemplate(
             pattern_id="test_card_v1",
             card_type="test_employee",
@@ -779,11 +779,11 @@ class TestDataGenerator:
             fields=[
                 {
                     "field_name": "employee_id",
-                    "query_phrase": "사번은 무엇입니까?",
+                    "query_phrase": "社員番号は何ですか？",
                     "expected_format": "\\d{6}"
                 }
             ]
         )
 ```
 
-이 테스팅 전략은 시스템의 모든 핵심 기능과 속성을 검증하여 AWS 기반 Face-Auth IdP 시스템의 신뢰성과 정확성을 보장합니다.
+このテスト戦略は、システムのすべてのコア機能とプロパティを検証し、AWS ベースの Face-Auth IdP システムの信頼性と正確性を保証します。
