@@ -282,7 +282,12 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
                              f"Unexpected error: {str(e)}", request_id)
 
 
-def _increment_rate_limit(rate_limit_table, identifier: str, attempt_count: int, window_start: datetime):
+def _increment_rate_limit(
+    rate_limit_table: Any, 
+    identifier: str, 
+    attempt_count: int, 
+    window_start: datetime
+) -> None:
     """
     Increment rate limit counter in DynamoDB
     

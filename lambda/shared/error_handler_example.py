@@ -5,11 +5,12 @@ This file demonstrates how to use the ErrorHandler class in various scenarios
 within the Face-Auth IdP system.
 """
 
+from typing import Dict, Any
 from shared.error_handler import error_handler
 from shared.models import ErrorCodes
 
 
-def example_enrollment_failure():
+def example_enrollment_failure() -> Dict[str, Any]:
     """Example: Handle enrollment failure due to ID card format mismatch"""
     
     # Simulate enrollment processing
