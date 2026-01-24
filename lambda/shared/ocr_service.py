@@ -40,7 +40,7 @@ class OCRService:
     - Error handling for unsupported card formats
     """
     
-    def __init__(self, region_name: str = 'us-east-1'):
+    def __init__(self, region_name: str = 'ap-northeast-1'):
         """
         Initialize OCR service
         
@@ -480,7 +480,7 @@ class OCRService:
 
 # Utility functions for OCR operations
 
-def create_ocr_service(region_name: str = 'us-east-1') -> OCRService:
+def create_ocr_service(region_name: str = 'ap-northeast-1') -> OCRService:
     """
     Factory function to create OCRService instance
     

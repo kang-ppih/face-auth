@@ -9,7 +9,7 @@ import os
 from typing import Dict, Any
 
 # AWS Configuration
-AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
+AWS_REGION = os.getenv('AWS_REGION', 'ap-northeast-1')
 AWS_ACCOUNT_ID = os.getenv('CDK_DEFAULT_ACCOUNT')
 
 # Face Authentication Configuration

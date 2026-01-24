@@ -3,7 +3,7 @@
 **日付:** 2026-01-24  
 **環境:** AWS Profile `dev`  
 **アカウント:** 979431736455  
-**リージョン:** us-east-1 (デフォルト)
+**リージョン:** ap-northeast-1 (東京)
 
 ## 実行した検証
 
@@ -27,7 +27,7 @@
 ```python
 env = cdk.Environment(
     account=os.getenv('CDK_DEFAULT_ACCOUNT'),
-    region=os.getenv('CDK_DEFAULT_REGION', 'us-east-1')
+    region=os.getenv('CDK_DEFAULT_REGION', 'ap-northeast-1')
 )
 ```
 
@@ -37,11 +37,11 @@ env = cdk.Environment(
 ```bash
 # デプロイ前に環境変数を設定
 export CDK_DEFAULT_ACCOUNT=979431736455
-export CDK_DEFAULT_REGION=us-east-1
+export CDK_DEFAULT_REGION=ap-northeast-1
 
 # または PowerShell の場合
 $env:CDK_DEFAULT_ACCOUNT="979431736455"
-$env:CDK_DEFAULT_REGION="us-east-1"
+$env:CDK_DEFAULT_REGION="ap-northeast-1"
 ```
 
 ### 2. 環境識別子の欠如
@@ -137,7 +137,7 @@ code=lambda_.Code.from_asset("lambda/enrollment"),
   - IAM
   - API Gateway
   - CloudWatch Logs
-- [ ] リージョン `us-east-1` が正しいか
+- [ ] リージョン `ap-northeast-1` が正しいか
 - [ ] アカウント制限（Lambda 同時実行数、VPC 制限など）
 
 ## 🔧 推奨される修正
@@ -162,7 +162,7 @@ env_name = app.node.try_get_context("env") or os.getenv("ENVIRONMENT", "dev")
 # AWS 環境設定
 env = cdk.Environment(
     account=os.getenv('CDK_DEFAULT_ACCOUNT') or os.getenv('AWS_ACCOUNT_ID'),
-    region=os.getenv('CDK_DEFAULT_REGION', 'us-east-1')
+    region=os.getenv('CDK_DEFAULT_REGION', 'ap-northeast-1')
 )
 
 # スタック名に環境を含める
@@ -185,14 +185,14 @@ app.synth()
 ```bash
 # 環境変数を設定してデプロイ
 export CDK_DEFAULT_ACCOUNT=979431736455
-export CDK_DEFAULT_REGION=us-east-1
+export CDK_DEFAULT_REGION=ap-northeast-1
 
 # または PowerShell
 $env:CDK_DEFAULT_ACCOUNT="979431736455"
-$env:CDK_DEFAULT_REGION="us-east-1"
+$env:CDK_DEFAULT_REGION="ap-northeast-1"
 
 # CDK Bootstrap（初回のみ）
-cdk bootstrap aws://979431736455/us-east-1
+cdk bootstrap aws://979431736455/ap-northeast-1
 
 # デプロイ（差分確認）
 cdk diff --context env=dev
@@ -235,12 +235,12 @@ cdk deploy --context env=dev
 1. **環境変数の設定**
    ```bash
    $env:CDK_DEFAULT_ACCOUNT="979431736455"
-   $env:CDK_DEFAULT_REGION="us-east-1"
+   $env:CDK_DEFAULT_REGION="ap-northeast-1"
    ```
 
 2. **CDK Bootstrap（初回のみ）**
    ```bash
-   cdk bootstrap aws://979431736455/us-east-1 --profile dev
+   cdk bootstrap aws://979431736455/ap-northeast-1 --profile dev
    ```
 
 3. **差分確認**

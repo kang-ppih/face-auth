@@ -44,7 +44,7 @@ aws configure
 ```
 AWS Access Key ID [None]: YOUR_ACCESS_KEY_ID
 AWS Secret Access Key [None]: YOUR_SECRET_ACCESS_KEY
-Default region name [None]: us-east-1
+Default region name [None]: ap-northeast-1
 Default output format [None]: json
 ```
 
@@ -68,7 +68,7 @@ aws sts get-caller-identity
 ```powershell
 $env:AWS_ACCESS_KEY_ID="YOUR_ACCESS_KEY_ID"
 $env:AWS_SECRET_ACCESS_KEY="YOUR_SECRET_ACCESS_KEY"
-$env:AWS_DEFAULT_REGION="us-east-1"
+$env:AWS_DEFAULT_REGION="ap-northeast-1"
 ```
 
 #### 영구 설정 (시스템 환경 변수)
@@ -76,7 +76,7 @@ $env:AWS_DEFAULT_REGION="us-east-1"
 2. 새로 만들기:
    - `AWS_ACCESS_KEY_ID`: YOUR_ACCESS_KEY_ID
    - `AWS_SECRET_ACCESS_KEY`: YOUR_SECRET_ACCESS_KEY
-   - `AWS_DEFAULT_REGION`: us-east-1
+   - `AWS_DEFAULT_REGION`: ap-northeast-1
 
 ---
 
@@ -84,7 +84,7 @@ $env:AWS_DEFAULT_REGION="us-east-1"
 
 ### 1. S3 버킷 생성
 ```bash
-aws s3 mb s3://face-auth-dev-bucket --region us-east-1
+aws s3 mb s3://face-auth-dev-bucket --region ap-northeast-1
 ```
 
 ### 2. DynamoDB 테이블 생성
@@ -95,7 +95,7 @@ aws dynamodb create-table \
     --attribute-definitions AttributeName=pattern_id,AttributeType=S \
     --key-schema AttributeName=pattern_id,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST \
-    --region us-east-1
+    --region ap-northeast-1
 
 # EmployeeFaces 테이블
 aws dynamodb create-table \
@@ -103,7 +103,7 @@ aws dynamodb create-table \
     --attribute-definitions AttributeName=employee_id,AttributeType=S \
     --key-schema AttributeName=employee_id,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST \
-    --region us-east-1
+    --region ap-northeast-1
 
 # AuthSessions 테이블 (TTL 포함)
 aws dynamodb create-table \
@@ -111,7 +111,7 @@ aws dynamodb create-table \
     --attribute-definitions AttributeName=session_id,AttributeType=S \
     --key-schema AttributeName=session_id,KeyType=HASH \
     --billing-mode PAY_PER_REQUEST \
-    --region us-east-1
+    --region ap-northeast-1
 
 # TTL 활성화
 aws dynamodb update-time-to-live \
