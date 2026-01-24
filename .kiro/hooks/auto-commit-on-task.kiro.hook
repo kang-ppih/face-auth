@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Auto Commit on Task Completion",
+  "description": "タスク完了時に変更を自動的にGitにコミットします",
+  "version": "1",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "runCommand",
+    "command": "git add . && git commit -m \"Auto-commit: Task completed\" || echo \"No changes to commit\""
+  }
+}
