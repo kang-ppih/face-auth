@@ -216,7 +216,9 @@ class FaceAuthStack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             encryption=dynamodb.TableEncryption.AWS_MANAGED,
             removal_policy=RemovalPolicy.RETAIN,
-            point_in_time_recovery=True
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            )
         )
 
         # Global Secondary Index for card type queries
@@ -240,7 +242,9 @@ class FaceAuthStack(Stack):
             billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
             encryption=dynamodb.TableEncryption.AWS_MANAGED,
             removal_policy=RemovalPolicy.RETAIN,
-            point_in_time_recovery=True
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            )
         )
 
         # Global Secondary Index for face_id queries
