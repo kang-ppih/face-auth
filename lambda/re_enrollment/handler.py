@@ -22,7 +22,7 @@ from datetime import datetime
 
 # Import from shared modules (bundled with function)
 from shared.ocr_service import OCRService
-from shared.ad_connector import ADConnector
+from shared.ad_connector_mock import create_ad_connector
 from shared.face_recognition_service import FaceRecognitionService
 from shared.thumbnail_processor import ThumbnailProcessor
 from shared.error_handler import ErrorHandler

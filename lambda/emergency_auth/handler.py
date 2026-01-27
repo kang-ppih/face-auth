@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 
 # Import from shared modules (bundled with function)
 from shared.ocr_service import OCRService
-from shared.ad_connector import ADConnector
+from shared.ad_connector_mock import create_ad_connector
 from shared.cognito_service import CognitoService
 from shared.error_handler import ErrorHandler
 from shared.timeout_manager import TimeoutManager

@@ -21,7 +21,7 @@ from datetime import datetime
 
 # Import from shared modules (bundled with function)
 from shared.ocr_service import OCRService
-from shared.ad_connector import ADConnector
+from shared.ad_connector_mock import create_ad_connector
 from shared.face_recognition_service import FaceRecognitionService
 from shared.thumbnail_processor import ThumbnailProcessor
 from shared.error_handler import ErrorHandler
@@ -99,9 +99,22 @@ def handle_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Initialize services
         logger.info("Initializing services for enrollment")
         ocr_service = OCRService(region_name=region)
-        ad_connector = ADConnector()
+        
+        # Initialize AD Connector (Mock or Real based on environment)
+        ad_server_url = os.environ.get('AD_SERVER_URL', 'ldaps://ad.company.com')
+        ad_base_dn = os.environ.get('AD_BASE_DN', 'DC=company,DC=com')
+        ad_timeout = int(os.environ.get('AD_TIMEOUT', '10'))
+        use_mock_ad = os.environ.get('USE_MOCK_AD', 'true').lower() == 'true'
+        
+        ad_connector = create_ad_connector(
+            use_mock=use_mock_ad,
+            server_url=ad_server_url,
+            base_dn=ad_base_dn,
+            timeout=ad_timeout
+        )
+        
         face_service = FaceRecognitionService(collection_id=collection_id, region_name=region)
-        thumbnail_processor = ThumbnailProcessor()
+        thumbnail_processor = ThumbnailProcessor(bucket_name=bucket_name, region_name=region)
         error_handler = ErrorHandler()
         db_service = DynamoDBService(region_name=region)
         db_service.initialize_tables(card_templates_table, employee_faces_table, auth_sessions_table)
@@ -137,7 +150,7 @@ def handle_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                  error_response.user_message,
                                  error_response.system_reason, request_id)
         
-        # Step 2: Verify with Active Directory
+        # Step 2: Verify with Active Directory (or Mock)
         logger.info(f"Step 2: Verifying employee {employee_info.employee_id} with AD")
         if not timeout_manager.check_ad_timeout():
             logger.warning("AD timeout limit reached before verification")
@@ -145,40 +158,33 @@ def handle_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                  "인증 서버 연결 시간 초과",
                                  "AD timeout before verification", request_id)
         
-        # Note: AD connector may have issues, so we'll handle gracefully
-        try:
-            ad_result = ad_connector.verify_employee(employee_info.employee_id, employee_info.to_dict())
+        ad_result = ad_connector.verify_employee(employee_info.employee_id, employee_info)
+        
+        if not ad_result.success:
+            logger.warning(f"AD verification failed: {ad_result.reason}")
             
-            if not ad_result.success:
-                logger.warning(f"AD verification failed: {ad_result.reason}")
-                
-                # Map AD errors to appropriate error codes
-                if ad_result.reason == "account_disabled":
-                    error_response = error_handler.handle_error(
-                        ErrorCodes.ACCOUNT_DISABLED,
-                        {'request_id': request_id, 'employee_id': employee_info.employee_id}
-                    )
-                elif ad_result.reason == "employee_not_found":
-                    error_response = error_handler.handle_error(
-                        ErrorCodes.REGISTRATION_INFO_MISMATCH,
-                        {'request_id': request_id, 'employee_id': employee_info.employee_id}
-                    )
-                else:
-                    error_response = error_handler.handle_error(
-                        ErrorCodes.AD_CONNECTION_ERROR,
-                        {'request_id': request_id, 'detail': ad_result.reason}
-                    )
-                
-                return _error_response(400, error_response.error_code,
-                                     error_response.user_message,
-                                     error_response.system_reason, request_id)
+            # Map AD errors to appropriate error codes
+            if ad_result.reason == ErrorCodes.ACCOUNT_DISABLED:
+                error_response = error_handler.handle_error(
+                    ErrorCodes.ACCOUNT_DISABLED,
+                    {'request_id': request_id, 'employee_id': employee_info.employee_id}
+                )
+            elif ad_result.reason == ErrorCodes.REGISTRATION_INFO_MISMATCH:
+                error_response = error_handler.handle_error(
+                    ErrorCodes.REGISTRATION_INFO_MISMATCH,
+                    {'request_id': request_id, 'employee_id': employee_info.employee_id}
+                )
+            else:
+                error_response = error_handler.handle_error(
+                    ErrorCodes.AD_CONNECTION_ERROR,
+                    {'request_id': request_id, 'detail': ad_result.error}
+                )
             
-            logger.info(f"AD verification successful for {employee_info.employee_id}")
-            
-        except Exception as ad_error:
-            # AD connector may not be fully functional, log and continue
-            logger.warning(f"AD verification skipped due to error: {str(ad_error)}")
-            logger.info("Continuing enrollment without AD verification (AD connector may have issues)")
+            return _error_response(400, error_response.error_code,
+                                 error_response.user_message,
+                                 error_response.system_reason, request_id)
+        
+        logger.info(f"AD verification successful for {employee_info.employee_id}")
         
         # Step 3: Process face image with liveness detection
         logger.info("Step 3: Processing face image with liveness detection")

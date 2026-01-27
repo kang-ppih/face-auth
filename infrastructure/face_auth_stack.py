@@ -669,7 +669,11 @@ class FaceAuthStack(Stack):
                 "REKOGNITION_COLLECTION_ID": "face-auth-employees",
                 "AD_TIMEOUT": "10",  # 10-second AD timeout
                 "LAMBDA_TIMEOUT": "15",  # 15-second Lambda timeout
-                "SESSION_TIMEOUT_HOURS": "8"  # 8-hour session timeout
+                "SESSION_TIMEOUT_HOURS": "8",  # 8-hour session timeout
+                # AD Configuration (Mock mode by default)
+                "USE_MOCK_AD": os.getenv("USE_MOCK_AD", "true"),  # Use mock AD by default
+                "AD_SERVER_URL": os.getenv("AD_SERVER_URL", "ldaps://ad.company.com:636"),
+                "AD_BASE_DN": os.getenv("AD_BASE_DN", "DC=company,DC=com")
                 # Note: AWS_REGION is automatically set by Lambda runtime
             }
         }
