@@ -56,7 +56,24 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
    cdk deploy
    ```
 
-3. **Rekognitionコレクションの作成**
+3. **IPアクセス制御の設定（オプション）**
+   
+   特定のIPアドレスからのみAPIアクセスを許可する場合：
+   
+   ```bash
+   # 単一IPアドレスを許可
+   cdk deploy --context allowed_ips="203.0.113.10/32"
+   
+   # 複数のIP範囲を許可（カンマ区切り）
+   cdk deploy --context allowed_ips="203.0.113.10/32,198.51.100.0/24"
+   
+   # 社内ネットワーク全体を許可
+   cdk deploy --context allowed_ips="10.0.0.0/8"
+   ```
+   
+   詳細は [IPアクセス制御ドキュメント](docs/IP_ACCESS_CONTROL.md) を参照してください。
+
+4. **Rekognitionコレクションの作成**
    ```bash
    aws rekognition create-collection --collection-id face-auth-employees
    ```

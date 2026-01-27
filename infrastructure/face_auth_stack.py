@@ -12,6 +12,7 @@ from aws_cdk import (
     Stack,
     Duration,
     RemovalPolicy,
+    Tags,
     aws_ec2 as ec2,
     aws_s3 as s3,
     aws_dynamodb as dynamodb,
@@ -20,10 +21,12 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_cognito as cognito,
     aws_logs as logs,
-    CfnOutput
+    CfnOutput,
+    Fn
 )
 from constructs import Construct
 import json
+import os
 
 
 class FaceAuthStack(Stack):
@@ -43,6 +46,22 @@ class FaceAuthStack(Stack):
 
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        # Apply tags to all resources in this stack for cost tracking
+        Tags.of(self).add("Name", "Face-auth")
+        Tags.of(self).add("Cost Center", "Face-auth")
+        Tags.of(self).add("Development", "dm-dev")
+        Tags.of(self).add("Project", "FaceAuth-IdP")
+        Tags.of(self).add("ManagedBy", "CDK")
+
+        # Get allowed IP addresses from context or environment variable
+        # Format: comma-separated CIDR blocks (e.g., "1.2.3.4/32,5.6.7.0/24")
+        allowed_ips_str = self.node.try_get_context("allowed_ips") or os.getenv("ALLOWED_IPS", "")
+        self.allowed_ip_ranges = [ip.strip() for ip in allowed_ips_str.split(",") if ip.strip()]
+        
+        # If no IPs specified, allow all (for development)
+        if not self.allowed_ip_ranges:
+            self.allowed_ip_ranges = ["0.0.0.0/0"]  # Allow all IPs (development mode)
 
         # Create VPC and networking components
         self._create_vpc_and_networking()
@@ -524,7 +543,9 @@ class FaceAuthStack(Stack):
                 logging_level=apigateway.MethodLoggingLevel.INFO,
                 data_trace_enabled=True,
                 metrics_enabled=True
-            )
+            ),
+            # Enable resource policy for IP-based access control
+            policy=self._create_api_resource_policy() if self.allowed_ip_ranges != ["0.0.0.0/0"] else None
         )
 
         # Create /auth resource
@@ -596,6 +617,46 @@ class FaceAuthStack(Stack):
 
         usage_plan.add_api_key(self.api_key)
 
+    def _create_api_resource_policy(self) -> iam.PolicyDocument:
+        """
+        Create API Gateway resource policy for IP-based access control
+        
+        Returns:
+            IAM PolicyDocument with IP whitelist
+        """
+        # Create IP condition for allowed ranges
+        ip_conditions = {
+            "IpAddress": {
+                "aws:SourceIp": self.allowed_ip_ranges
+            }
+        }
+        
+        # Allow access from whitelisted IPs
+        allow_statement = iam.PolicyStatement(
+            effect=iam.Effect.ALLOW,
+            principals=[iam.AnyPrincipal()],
+            actions=["execute-api:Invoke"],
+            resources=["execute-api:/*"],
+            conditions=ip_conditions
+        )
+        
+        # Deny access from all other IPs
+        deny_statement = iam.PolicyStatement(
+            effect=iam.Effect.DENY,
+            principals=[iam.AnyPrincipal()],
+            actions=["execute-api:Invoke"],
+            resources=["execute-api:/*"],
+            conditions={
+                "NotIpAddress": {
+                    "aws:SourceIp": self.allowed_ip_ranges
+                }
+            }
+        )
+        
+        return iam.PolicyDocument(
+            statements=[allow_statement, deny_statement]
+        )
+
     def _create_cloudwatch_logs(self):
         """
         Create CloudWatch Log Groups for monitoring and debugging
@@ -666,4 +727,11 @@ class FaceAuthStack(Stack):
             self, "APIKeyId",
             value=self.api_key.key_id,
             description="API Key ID for Face-Auth API"
+        )
+        
+        # Output allowed IP ranges for reference
+        CfnOutput(
+            self, "AllowedIPRanges",
+            value=", ".join(self.allowed_ip_ranges),
+            description="Allowed IP ranges for API access (0.0.0.0/0 means all IPs allowed)"
         )
