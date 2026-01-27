@@ -1,43 +1,43 @@
-# Face-Auth IdP System - クイックスタート テストガイド
+# Face-Auth IdP System - クイチE��スターチEチE��トガイチE
 
-## 🚀 すぐに始める
+## 🚀 すぐに始めめE
 
-システムのデプロイが完了しました。このガイドに従って、各機能をテストしてください。
+シスチE��のチE�Eロイが完亁E��ました。このガイドに従って、各機�Eをテストしてください、E
 
 ---
 
-## 📍 アクセス情報
+## 📍 アクセス惁E��
 
-### フロントエンド
+### フロントエンチE
 ```
 https://d3ecve2syriq5q.cloudfront.net
 ```
 
-### API エンドポイント
+### API エンド�EインチE
 ```
 https://zao7evz9jk.execute-api.ap-northeast-1.amazonaws.com/prod/
 ```
 
-### Cognito 情報
+### Cognito 惁E��
 - **User Pool ID:** `ap-northeast-1_ikSWDeIew`
 - **Client ID:** `6u4blhui7p35ra4p882srvrpod`
 
 ---
 
-## ⚠️ 重要な注意事項
+## ⚠�E�E重要な注意事頁E
 
-### IP制限について
+### IP制限につぁE��
 
-現在、以下のIP範囲からのみアクセス可能です：
+現在、以下�EIP篁E��からのみアクセス可能です！E
 ```
 210.128.54.64/27
 ```
 
-**許可されていないIPからアクセスすると403エラーが発生します。**
+**許可されてぁE��いIPからアクセスすると403エラーが発生します、E*
 
-別のIPアドレスからアクセスする必要がある場合：
+別のIPアドレスからアクセスする忁E��がある場合！E
 
-1. `.env`ファイルを編集
+1. `.env`ファイルを編雁E
 ```bash
 ALLOWED_IPS=210.128.54.64/27,<新しいIP>/32
 ```
@@ -49,48 +49,48 @@ npx cdk deploy --profile dev --context allowed_ips="210.128.54.64/27,<新しいI
 
 ---
 
-## 🧪 テストシナリオ
+## 🧪 チE��トシナリオ
 
 ### シナリオ1: 社員登録フロー
 
-**目的:** 新規社員の顔データを登録する
+**目皁E** 新規社員の顔データを登録する
 
-**手順:**
+**手頁E**
 
 1. **フロントエンドにアクセス**
    ```
    https://d3ecve2syriq5q.cloudfront.net
    ```
 
-2. **「社員登録」ボタンをクリック**
+2. **「社員登録」�EタンをクリチE��**
 
-3. **社員証画像をアップロード**
-   - 社員証の写真を撮影またはアップロード
-   - OCRで社員ID、氏名、部署を自動抽出
+3. **社員証画像をアチE�EローチE*
+   - 社員証の写真を撮影また�EアチE�EローチE
+   - OCRで社員ID、氏名、E��署を�E動抽出
 
 4. **AD認証**
-   - 抽出された情報でActive Directoryに照会
-   - 社員情報の正当性を確認
+   - 抽出された情報でActive Directoryに照企E
+   - 社員惁E��の正当性を確誁E
 
 5. **顔画像キャプチャ**
    - カメラで顔を撮影
-   - Liveness検出（>90%信頼度）
+   - Liveness検�E�E�E90%信頼度�E�E
 
-6. **登録完了**
+6. **登録完亁E*
    - Rekognitionに顔データを登録
-   - DynamoDBに社員情報を保存
+   - DynamoDBに社員惁E��を保孁E
 
-**期待される結果:**
-- ✅ 登録成功メッセージが表示される
-- ✅ DynamoDB `FaceAuth-EmployeeFaces` テーブルにレコードが追加される
-- ✅ Rekognition Collection `face-auth-employees` に顔データが登録される
+**期征E��れる結果:**
+- ✁E登録成功メチE��ージが表示されめE
+- ✁EDynamoDB `FaceAuth-EmployeeFaces` チE�Eブルにレコードが追加されめE
+- ✁ERekognition Collection `face-auth-employees` に顔データが登録されめE
 
-**確認方法:**
+**確認方況E**
 ```bash
-# DynamoDBテーブル確認
+# DynamoDBチE�Eブル確誁E
 aws dynamodb scan --table-name FaceAuth-EmployeeFaces --profile dev
 
-# Rekognition Collection確認
+# Rekognition Collection確誁E
 aws rekognition list-faces --collection-id face-auth-employees --profile dev
 ```
 
@@ -98,45 +98,45 @@ aws rekognition list-faces --collection-id face-auth-employees --profile dev
 
 ### シナリオ2: 顔認証ログインフロー
 
-**目的:** 登録済み社員が顔認証でログインする
+**目皁E** 登録済み社員が顔認証でログインする
 
-**前提条件:** シナリオ1で社員登録が完了していること
+**前提条件:** シナリオ1で社員登録が完亁E��てぁE��こと
 
-**手順:**
+**手頁E**
 
 1. **フロントエンドにアクセス**
    ```
    https://d3ecve2syriq5q.cloudfront.net
    ```
 
-2. **「顔認証ログイン」ボタンをクリック**
+2. **「顔認証ログイン」�EタンをクリチE��**
 
 3. **顔画像キャプチャ**
    - カメラで顔を撮影
-   - Liveness検出（>90%信頼度）
+   - Liveness検�E�E�E90%信頼度�E�E
 
 4. **1:N 顔検索**
    - Rekognition Collectionで顔を検索
-   - 類似度>90%の顔を特定
+   - 類似度>90%の顔を特宁E
 
-5. **セッション作成**
-   - Cognitoでセッションを作成
-   - JWTトークンを発行
+5. **セチE��ョン作�E**
+   - CognitoでセチE��ョンを作�E
+   - JWTト�Eクンを発衁E
 
-6. **ログイン完了**
-   - ダッシュボードまたはホーム画面に遷移
+6. **ログイン完亁E*
+   - ダチE��ュボ�Eドまた�Eホ�Eム画面に遷移
 
-**期待される結果:**
-- ✅ ログイン成功メッセージが表示される
-- ✅ DynamoDB `FaceAuth-AuthSessions` テーブルにセッションが作成される
-- ✅ `last_login` タイムスタンプが更新される
+**期征E��れる結果:**
+- ✁Eログイン成功メチE��ージが表示されめE
+- ✁EDynamoDB `FaceAuth-AuthSessions` チE�EブルにセチE��ョンが作�EされめE
+- ✁E`last_login` タイムスタンプが更新されめE
 
-**確認方法:**
+**確認方況E**
 ```bash
-# セッションテーブル確認
+# セチE��ョンチE�Eブル確誁E
 aws dynamodb scan --table-name FaceAuth-AuthSessions --profile dev
 
-# 社員テーブルのlast_login確認
+# 社員チE�Eブルのlast_login確誁E
 aws dynamodb get-item \
   --table-name FaceAuth-EmployeeFaces \
   --key '{"employee_id": {"S": "<社員ID>"}}' \
@@ -147,42 +147,42 @@ aws dynamodb get-item \
 
 ### シナリオ3: 緊急認証フロー
 
-**目的:** 顔認証が使えない場合に社員証+ADパスワードでログインする
+**目皁E** 顔認証が使えなぁE��合に社員証+ADパスワードでログインする
 
-**手順:**
+**手頁E**
 
 1. **フロントエンドにアクセス**
    ```
    https://d3ecve2syriq5q.cloudfront.net
    ```
 
-2. **「緊急認証」ボタンをクリック**
+2. **「緊急認証」�EタンをクリチE��**
 
-3. **社員証画像をアップロード**
-   - 社員証の写真を撮影またはアップロード
+3. **社員証画像をアチE�EローチE*
+   - 社員証の写真を撮影また�EアチE�EローチE
    - OCRで社員ID、氏名を抽出
 
-4. **ADパスワード入力**
-   - Active Directoryのパスワードを入力
+4. **ADパスワード�E劁E*
+   - Active Directoryのパスワードを入劁E
 
 5. **AD認証**
-   - LDAPS経由でAD認証（10秒タイムアウト）
-   - 認証成功後、セッション作成
+   - LDAPS経由でAD認証�E�E0秒タイムアウト！E
+   - 認証成功後、セチE��ョン作�E
 
-6. **ログイン完了**
-   - ダッシュボードまたはホーム画面に遷移
+6. **ログイン完亁E*
+   - ダチE��ュボ�Eドまた�Eホ�Eム画面に遷移
 
-**期待される結果:**
-- ✅ ログイン成功メッセージが表示される
-- ✅ DynamoDB `FaceAuth-AuthSessions` テーブルにセッションが作成される
-- ✅ 失敗した場合、S3 `logins/` に試行ログが保存される
+**期征E��れる結果:**
+- ✁Eログイン成功メチE��ージが表示されめE
+- ✁EDynamoDB `FaceAuth-AuthSessions` チE�EブルにセチE��ョンが作�EされめE
+- ✁E失敗した場合、S3 `logins/` に試行ログが保存される
 
-**確認方法:**
+**確認方況E**
 ```bash
-# セッションテーブル確認
+# セチE��ョンチE�Eブル確誁E
 aws dynamodb scan --table-name FaceAuth-AuthSessions --profile dev
 
-# 失敗ログ確認（失敗した場合）
+# 失敗ログ確認（失敗した場合！E
 aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/logins/ --profile dev
 ```
 
@@ -190,68 +190,68 @@ aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/logins/ --profile de
 
 ### シナリオ4: 再登録フロー
 
-**目的:** 既存社員の顔データを更新する
+**目皁E** 既存社員の顔データを更新する
 
-**前提条件:** シナリオ1で社員登録が完了していること
+**前提条件:** シナリオ1で社員登録が完亁E��てぁE��こと
 
-**手順:**
+**手頁E**
 
 1. **フロントエンドにアクセス**
    ```
    https://d3ecve2syriq5q.cloudfront.net
    ```
 
-2. **「再登録」ボタンをクリック**
+2. **「�E登録」�EタンをクリチE��**
 
-3. **社員証画像をアップロード**
-   - 社員証の写真を撮影またはアップロード
+3. **社員証画像をアチE�EローチE*
+   - 社員証の写真を撮影また�EアチE�EローチE
    - OCRで社員ID、氏名を抽出
 
 4. **AD認証**
-   - Active Directoryで本人確認
+   - Active Directoryで本人確誁E
 
-5. **古い顔データ削除**
-   - Rekognition Collectionから古い顔データを削除
+5. **古ぁE��データ削除**
+   - Rekognition Collectionから古ぁE��データを削除
 
 6. **新しい顔画像キャプチャ**
    - カメラで顔を撮影
-   - Liveness検出（>90%信頼度）
+   - Liveness検�E�E�E90%信頼度�E�E
 
-7. **再登録完了**
+7. **再登録完亁E*
    - Rekognitionに新しい顔データを登録
    - DynamoDBの`face_id`を更新
 
-**期待される結果:**
-- ✅ 再登録成功メッセージが表示される
-- ✅ DynamoDB `FaceAuth-EmployeeFaces` テーブルの`face_id`が更新される
-- ✅ Rekognition Collectionの顔データが更新される
+**期征E��れる結果:**
+- ✁E再登録成功メチE��ージが表示されめE
+- ✁EDynamoDB `FaceAuth-EmployeeFaces` チE�Eブルの`face_id`が更新されめE
+- ✁ERekognition Collectionの顔データが更新されめE
 
-**確認方法:**
+**確認方況E**
 ```bash
-# 社員テーブルのface_id確認
+# 社員チE�Eブルのface_id確誁E
 aws dynamodb get-item \
   --table-name FaceAuth-EmployeeFaces \
   --key '{"employee_id": {"S": "<社員ID>"}}' \
   --profile dev
 
-# Rekognition Collection確認
+# Rekognition Collection確誁E
 aws rekognition list-faces --collection-id face-auth-employees --profile dev
 ```
 
 ---
 
-### シナリオ5: ステータス確認
+### シナリオ5: スチE�Eタス確誁E
 
-**目的:** 現在のセッション状態を確認する
+**目皁E** 現在のセチE��ョン状態を確認すめE
 
-**手順:**
+**手頁E**
 
-1. **APIエンドポイントに直接リクエスト**
+1. **APIエンド�Eイントに直接リクエスチE*
    ```bash
    curl -X GET https://zao7evz9jk.execute-api.ap-northeast-1.amazonaws.com/prod/auth/status
    ```
 
-2. **レスポンス確認**
+2. **レスポンス確誁E*
    ```json
    {
      "statusCode": 200,
@@ -262,15 +262,15 @@ aws rekognition list-faces --collection-id face-auth-employees --profile dev
    }
    ```
 
-**期待される結果:**
-- ✅ 200 OK レスポンス
-- ✅ システムステータスが返される
+**期征E��れる結果:**
+- ✁E200 OK レスポンス
+- ✁EシスチE��スチE�Eタスが返される
 
 ---
 
-## 🔍 デバッグとログ確認
+## 🔍 チE��チE��とログ確誁E
 
-### Lambda関数のログ確認
+### Lambda関数のログ確誁E
 
 ```bash
 # Enrollment Lambda
@@ -307,32 +307,32 @@ aws logs filter-log-events \
 
 ---
 
-## 🐛 よくある問題と解決策
+## 🐛 よくある問題と解決筁E
 
-### 問題1: フロントエンドにアクセスできない
+### 問顁E: フロントエンドにアクセスできなぁE
 
-**症状:** `https://d3ecve2syriq5q.cloudfront.net` にアクセスすると403エラー
+**痁E��:** `https://d3ecve2syriq5q.cloudfront.net` にアクセスすると403エラー
 
-**解決策:**
+**解決筁E**
 ```bash
-# CloudFrontキャッシュ無効化
+# CloudFrontキャチE��ュ無効匁E
 aws cloudfront create-invalidation \
   --distribution-id E2G99Q4A3UQ8PU \
   --paths "/*" \
   --profile dev
 
-# 5-10分待つ
+# 5-10刁E��E��
 ```
 
-### 問題2: API呼び出しで403エラー
+### 問顁E: API呼び出しで403エラー
 
-**症状:** API呼び出しで403 Forbiddenエラー
+**痁E��:** API呼び出しで403 Forbiddenエラー
 
-**原因:** IP制限により、許可されていないIPアドレスからアクセスしている
+**原因:** IP制限により、許可されてぁE��いIPアドレスからアクセスしてぁE��
 
-**解決策:**
+**解決筁E**
 ```bash
-# 現在のIPアドレス確認
+# 現在のIPアドレス確誁E
 curl https://checkip.amazonaws.com
 
 # .envファイル更新
@@ -343,24 +343,24 @@ npx cdk deploy --profile dev \
   --context allowed_ips="210.128.54.64/27,<新しいIP>/32"
 ```
 
-### 問題3: Lambda関数でImportError
+### 問顁E: Lambda関数でImportError
 
-**症状:** `ModuleNotFoundError: No module named 'jwt'`
+**痁E��:** `ModuleNotFoundError: No module named 'jwt'`
 
-**原因:** 外部ライブラリがバンドルされていない
+**原因:** 外部ライブラリがバンドルされてぁE��ぁE
 
-**解決策:** Lambda Layerを作成（詳細は`DEPLOYMENT_STATUS_REPORT.md`参照）
+**解決筁E** Lambda Layerを作�E�E�詳細は`DEPLOYMENT_STATUS_REPORT.md`参�E�E�E
 
-### 問題4: CORSエラー
+### 問顁E: CORSエラー
 
-**症状:** ブラウザコンソールに`CORS policy: No 'Access-Control-Allow-Origin' header`
+**痁E��:** ブラウザコンソールに`CORS policy: No 'Access-Control-Allow-Origin' header`
 
-**解決策:**
+**解決筁E**
 ```bash
-# .envファイル確認
+# .envファイル確誁E
 cat .env | grep FRONTEND_ORIGINS
 
-# 正しいオリジンを設定
+# 正しいオリジンを設宁E
 FRONTEND_ORIGINS=https://d3ecve2syriq5q.cloudfront.net
 
 # 再デプロイ
@@ -368,13 +368,13 @@ npx cdk deploy --profile dev \
   --context frontend_origins="https://d3ecve2syriq5q.cloudfront.net"
 ```
 
-### 問題5: Rekognition Collection not found
+### 問顁E: Rekognition Collection not found
 
-**症状:** `ResourceNotFoundException: Collection face-auth-employees not found`
+**痁E��:** `ResourceNotFoundException: Collection face-auth-employees not found`
 
-**解決策:**
+**解決筁E**
 ```bash
-# Collection作成
+# Collection作�E
 aws rekognition create-collection \
   --collection-id face-auth-employees \
   --profile dev
@@ -382,32 +382,32 @@ aws rekognition create-collection \
 
 ---
 
-## 📊 パフォーマンステスト
+## 📊 パフォーマンスチE��チE
 
-### Lambda関数のレスポンスタイム測定
+### Lambda関数のレスポンスタイム測宁E
 
 ```bash
-# 10回実行して平均レスポンスタイムを測定
+# 10回実行して平坁E��スポンスタイムを測宁E
 for i in {1..10}; do
   time curl -X GET https://zao7evz9jk.execute-api.ap-northeast-1.amazonaws.com/prod/auth/status
 done
 ```
 
-### 同時実行テスト
+### 同時実行テスチE
 
 ```bash
-# Apache Bench（要インストール）
+# Apache Bench�E�要インスト�Eル�E�E
 ab -n 100 -c 10 https://zao7evz9jk.execute-api.ap-northeast-1.amazonaws.com/prod/auth/status
 ```
 
 ---
 
-## 🔐 セキュリティチェック
+## 🔐 セキュリチE��チェチE��
 
-### 1. S3バケットのパブリックアクセス確認
+### 1. S3バケチE��のパブリチE��アクセス確誁E
 
 ```bash
-# パブリックアクセスがブロックされていることを確認
+# パブリチE��アクセスがブロチE��されてぁE��ことを確誁E
 aws s3api get-public-access-block \
   --bucket face-auth-images-979431736455-ap-northeast-1 \
   --profile dev
@@ -417,7 +417,7 @@ aws s3api get-public-access-block \
   --profile dev
 ```
 
-**期待される結果:**
+**期征E��れる結果:**
 ```json
 {
   "PublicAccessBlockConfiguration": {
@@ -429,19 +429,19 @@ aws s3api get-public-access-block \
 }
 ```
 
-### 2. Lambda実行ロールの権限確認
+### 2. Lambda実行ロールの権限確誁E
 
 ```bash
-# Lambda実行ロールのポリシー確認
+# Lambda実行ロールのポリシー確誁E
 aws iam list-attached-role-policies \
   --role-name FaceAuthIdPStack-FaceAuthLambdaExecutionRole* \
   --profile dev
 ```
 
-### 3. API Gateway IP制限確認
+### 3. API Gateway IP制限確誁E
 
 ```bash
-# API Gateway Resource Policy確認
+# API Gateway Resource Policy確誁E
 aws apigateway get-rest-api \
   --rest-api-id zao7evz9jk \
   --profile dev \
@@ -450,9 +450,9 @@ aws apigateway get-rest-api \
 
 ---
 
-## 📈 モニタリングダッシュボード
+## 📈 モニタリングダチE��ュボ�EチE
 
-### CloudWatch メトリクス確認
+### CloudWatch メトリクス確誁E
 
 ```bash
 # Lambda関数のエラー数
@@ -480,36 +480,36 @@ aws cloudwatch get-metric-statistics \
 
 ---
 
-## ✅ テスト完了チェックリスト
+## ✁EチE��ト完亁E��ェチE��リスチE
 
 - [ ] フロントエンドにアクセスできる
-- [ ] 社員登録フローが動作する
-- [ ] 顔認証ログインフローが動作する
-- [ ] 緊急認証フローが動作する
-- [ ] 再登録フローが動作する
-- [ ] ステータス確認APIが動作する
-- [ ] CORS設定が正しく動作する
-- [ ] IP制限が正しく動作する
+- [ ] 社員登録フローが動作すめE
+- [ ] 顔認証ログインフローが動作すめE
+- [ ] 緊急認証フローが動作すめE
+- [ ] 再登録フローが動作すめE
+- [ ] スチE�Eタス確認APIが動作すめE
+- [ ] CORS設定が正しく動作すめE
+- [ ] IP制限が正しく動作すめE
 - [ ] Lambda関数のログが確認できる
-- [ ] DynamoDBにデータが保存される
-- [ ] Rekognition Collectionに顔データが登録される
-- [ ] セッション管理が正しく動作する
+- [ ] DynamoDBにチE�Eタが保存される
+- [ ] Rekognition Collectionに顔データが登録されめE
+- [ ] セチE��ョン管琁E��正しく動作すめE
 
 ---
 
-## 📞 サポート
+## 📞 サポ�EチE
 
-問題が発生した場合は、以下のドキュメントを参照してください：
+問題が発生した場合�E、以下�Eドキュメントを参�Eしてください�E�E
 
-- `DEPLOYMENT_STATUS_REPORT.md` - デプロイ完了レポート
-- `DEPLOYMENT_GUIDE.md` - デプロイ手順
-- `CORS_AND_IP_RESTRICTION_GUIDE.md` - CORS・IP制限ガイド
-- `docs/INFRASTRUCTURE_ARCHITECTURE.md` - インフラアーキテクチャ
+- `DEPLOYMENT_STATUS_REPORT.md` - チE�Eロイ完亁E��ポ�EチE
+- `DEPLOYMENT_GUIDE.md` - チE�Eロイ手頁E
+- `CORS_AND_IP_RESTRICTION_GUIDE.md` - CORS・IP制限ガイチE
+- `docs/INFRASTRUCTURE_ARCHITECTURE.md` - インフラアーキチE��チャ
 
 ---
 
-**作成日:** 2026年1月28日  
-**ステータス:** ✅ テスト準備完了
+**作�E日:** 2026年1朁E8日  
+**スチE�Eタス:** ✁EチE��ト準備完亁E
 
-システムは稼働可能な状態です。上記のテストシナリオに従って、各機能の動作確認を実施してください。
+シスチE��は稼働可能な状態です。上記�EチE��トシナリオに従って、各機�Eの動作確認を実施してください、E
 

@@ -501,10 +501,10 @@ def validate_employee_id_format(employee_id: str) -> bool:
         employee_id: Employee identifier to validate
         
     Returns:
-        bool: True if format is valid (6 digits or contractor format)
+        bool: True if format is valid (7 digits or contractor format)
     """
-    # Standard employee: 6 digits
-    if re.match(r'^\d{6}$', employee_id):
+    # Standard employee: 7 digits
+    if re.match(r'^\d{7}$', employee_id):
         return True
     
     # Contractor: C followed by 5 digits

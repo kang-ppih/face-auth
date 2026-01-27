@@ -1,182 +1,182 @@
-# Mock AD Connector 使用ガイド
+# Mock AD Connector 使用ガイチE
 
-## 📋 概要
+## 📋 概要E
 
-Face-Auth IdP System では、オンプレミスActive Directory (AD) への接続が設定されていない場合でも、**Mock AD Connector** を使用してシステムをテストできます。
+Face-Auth IdP System では、オンプレミスActive Directory (AD) への接続が設定されてぁE��ぁE��合でも、E*Mock AD Connector** を使用してシスチE��をテストできます、E
 
-Mock AD Connectorは、実際のAD接続なしで社員番号ベースの認証をシミュレートします。
-
----
-
-## ⚠️ 重要な注意事項
-
-### Mock AD Connectorは開発・テスト専用です
-
-- ✅ **開発環境での使用:** OK
-- ✅ **テスト環境での使用:** OK
-- ❌ **本番環境での使用:** 絶対NG
-
-本番環境では、必ず実際のActive Directoryに接続してください。
+Mock AD Connectorは、実際のAD接続なしで社員番号ベ�Eスの認証をシミュレートします、E
 
 ---
 
-## 🔧 設定方法
+## ⚠�E�E重要な注意事頁E
 
-### 1. 環境変数の設定
+### Mock AD Connectorは開発・チE��ト専用でぁE
 
-`.env` ファイルを編集：
+- ✁E**開発環墁E��の使用:** OK
+- ✁E**チE��ト環墁E��の使用:** OK
+- ❁E**本番環墁E��の使用:** 絶対NG
+
+本番環墁E��は、忁E��実際のActive Directoryに接続してください、E
+
+---
+
+## 🔧 設定方況E
+
+### 1. 環墁E��数の設宁E
+
+`.env` ファイルを編雁E��E
 
 ```bash
-# Mock ADを使用する場合（デフォルト）
+# Mock ADを使用する場合（デフォルト！E
 USE_MOCK_AD=true
 
-# 実際のADを使用する場合
+# 実際のADを使用する場吁E
 USE_MOCK_AD=false
 AD_SERVER_URL=ldaps://ad.company.com:636
 AD_BASE_DN=DC=company,DC=com
 ```
 
-### 2. CDKデプロイ
+### 2. CDKチE�Eロイ
 
-環境変数が自動的にLambda関数に設定されます：
+環墁E��数が�E動的にLambda関数に設定されます！E
 
 ```bash
 npx cdk deploy --profile dev
 ```
 
-### 3. 確認
+### 3. 確誁E
 
-Lambda関数のログで以下のメッセージを確認：
+Lambda関数のログで以下�EメチE��ージを確認！E
 
 ```
-⚠️ Using MOCK AD Connector - FOR DEVELOPMENT/TESTING ONLY!
-[MOCK] Verifying employee: 123456
-[MOCK] Employee verification successful: 123456 in 0.15s
+⚠�E�EUsing MOCK AD Connector - FOR DEVELOPMENT/TESTING ONLY!
+[MOCK] Verifying employee: 1234567
+[MOCK] Employee verification successful: 1234567 in 0.15s
 ```
 
 ---
 
-## 🎯 Mock AD Connectorの動作
+## 🎯 Mock AD Connectorの動佁E
 
 ### 社員検証 (verify_employee)
 
-**入力:**
-- `employee_id`: 6桁の社員番号（例: "123456"）
-- `extracted_info`: OCRで抽出した社員情報
+**入劁E**
+- `employee_id`: 6桁�E社員番号�E�侁E "1234567"�E�E
+- `extracted_info`: OCRで抽出した社員惁E��
 
-**動作:**
-1. 社員番号が6桁の数字かチェック
-2. 有効な社員番号であれば、自動的に認証成功
-3. モックの社員データを返却
+**動佁E**
+1. 社員番号ぁE桁�E数字かチェチE��
+2. 有効な社員番号であれば、�E動的に認証成功
+3. モチE��の社員チE�Eタを返却
 
-**返却データ:**
+**返却チE�Eタ:**
 ```python
 {
-    'employee_id': '123456',
-    'name': '山田太郎',  # OCRから抽出した名前、または自動生成
-    'department': '開発部',  # OCRから抽出した部署、または「未設定」
-    'email': 'employee123456@company.com',
+    'employee_id': '1234567',
+    'name': '山田太郁E,  # OCRから抽出した名前、また�E自動生戁E
+    'department': '開発部',  # OCRから抽出した部署、また�E「未設定、E
+    'email': 'employee1234567@company.com',
     'title': '社員',
-    'user_account_control': 512  # 有効なアカウント
+    'user_account_control': 512  # 有効なアカウンチE
 }
 ```
 
 ### パスワード認証 (authenticate_password)
 
-**入力:**
-- `employee_id`: 6桁の社員番号
-- `password`: 任意のパスワード
+**入劁E**
+- `employee_id`: 6桁�E社員番号
+- `password`: 任意�EパスワーチE
 
-**動作:**
-1. 社員番号が6桁の数字かチェック
-2. パスワードが空でなければ、自動的に認証成功
+**動佁E**
+1. 社員番号ぁE桁�E数字かチェチE��
+2. パスワードが空でなければ、�E動的に認証成功
 
-**返却データ:**
+**返却チE�Eタ:**
 ```python
 {
-    'employee_id': '123456',
-    'dn': 'CN=123456,DC=mock,DC=com'
+    'employee_id': '1234567',
+    'dn': 'CN=1234567,DC=mock,DC=com'
 }
 ```
 
 ---
 
-## 📝 使用例
+## 📝 使用侁E
 
 ### 社員登録フロー
 
 ```
 1. フロントエンドで社員証をスキャン
-   ↓
-2. OCRで社員番号を抽出（例: "123456"）
-   ↓
+   ↁE
+2. OCRで社員番号を抽出�E�侁E "1234567"�E�E
+   ↁE
 3. Mock AD Connectorで検証
-   - employee_id: "123456" → ✅ 自動的に認証成功
-   ↓
+   - employee_id: "1234567" ↁE✁E自動的に認証成功
+   ↁE
 4. 顔画像をキャプチャ
-   ↓
+   ↁE
 5. Rekognitionに登録
-   ↓
-6. DynamoDBに保存
+   ↁE
+6. DynamoDBに保孁E
 ```
 
 ### 緊急認証フロー
 
 ```
 1. フロントエンドで社員証をスキャン
-   ↓
-2. OCRで社員番号を抽出（例: "123456"）
-   ↓
-3. パスワード入力（任意の文字列でOK）
-   ↓
+   ↁE
+2. OCRで社員番号を抽出�E�侁E "1234567"�E�E
+   ↁE
+3. パスワード�E力（任意�E斁E���EでOK�E�E
+   ↁE
 4. Mock AD Connectorで認証
-   - employee_id: "123456", password: "test123" → ✅ 自動的に認証成功
-   ↓
-5. セッション作成
-   ↓
-6. ログイン完了
+   - employee_id: "1234567", password: "test123" ↁE✁E自動的に認証成功
+   ↁE
+5. セチE��ョン作�E
+   ↁE
+6. ログイン完亁E
 ```
 
 ---
 
-## 🧪 テスト用の社員データ
+## 🧪 チE��ト用の社員チE�Eタ
 
-Mock AD Connectorには、以下のテスト用社員データが事前登録されています：
+Mock AD Connectorには、以下�EチE��ト用社員チE�Eタが事前登録されてぁE��す！E
 
-### 有効なアカウント
+### 有効なアカウンチE
 
 | 社員番号 | 名前 | 部署 | メール |
 |---------|------|------|--------|
-| `123456` | 山田太郎 | 開発部 | yamada.taro@company.com |
-| `789012` | 佐藤花子 | 営業部 | sato.hanako@company.com |
-| `345678` | 鈴木一郎 | 人事部 | suzuki.ichiro@company.com |
+| `1234567` | 山田太郁E| 開発部 | yamada.taro@company.com |
+| `7890123` | 佐藤花孁E| 営業部 | sato.hanako@company.com |
+| `3456789` | 鈴木一郁E| 人事部 | suzuki.ichiro@company.com |
 
-### 無効なアカウント（テスト用）
+### 無効なアカウント（テスト用�E�E
 
-| 社員番号 | 名前 | 部署 | ステータス |
+| 社員番号 | 名前 | 部署 | スチE�Eタス |
 |---------|------|------|-----------|
-| `999999` | 無効アカウント | テスト部 | ❌ 無効化 |
+| `9999999` | 無効アカウンチE| チE��ト部 | ❁E無効匁E|
 
-**使用例:**
+**使用侁E**
 ```bash
-# 有効なアカウントでテスト
-employee_id: "123456" → ✅ 認証成功
+# 有効なアカウントでチE��チE
+employee_id: "1234567" ↁE✁E認証成功
 
-# 無効なアカウントでテスト
-employee_id: "999999" → ❌ "AD account is disabled"
+# 無効なアカウントでチE��チE
+employee_id: "9999999" ↁE❁E"AD account is disabled"
 ```
 
-### その他の社員番号
+### そ�E他�E社員番号
 
-上記以外の6桁の社員番号（例: "111111", "222222"）も使用可能です。
-Mock AD Connectorは自動的にモックデータを生成します：
+上記以外�E6桁�E社員番号�E�侁E "1111111", "2222222"�E�も使用可能です、E
+Mock AD Connectorは自動的にモチE��チE�Eタを生成します！E
 
 ```python
 {
-    'employee_id': '111111',
-    'name': '社員111111',  # OCRから抽出した名前、または自動生成
-    'department': '未設定',  # OCRから抽出した部署、または「未設定」
-    'email': 'employee111111@company.com',
+    'employee_id': '1111111',
+    'name': '社員1111111',  # OCRから抽出した名前、また�E自動生戁E
+    'department': '未設宁E,  # OCRから抽出した部署、また�E「未設定、E
+    'email': 'employee1111111@company.com',
     'title': '社員',
     'user_account_control': 512
 }
@@ -184,23 +184,23 @@ Mock AD Connectorは自動的にモックデータを生成します：
 
 ---
 
-## 🔄 実際のADへの切り替え
+## 🔄 実際のADへの刁E��替ぁE
 
-### 手順
+### 手頁E
 
-#### 1. Direct Connect/VPN接続の確立
+#### 1. Direct Connect/VPN接続�E確竁E
 
-`AD_CONNECTION_GUIDE.md` を参照して、オンプレミスADへの接続を設定します。
+`AD_CONNECTION_GUIDE.md` を参照して、オンプレミスADへの接続を設定します、E
 
-#### 2. 環境変数の更新
+#### 2. 環墁E��数の更新
 
-`.env` ファイルを編集：
+`.env` ファイルを編雁E��E
 
 ```bash
-# Mock ADを無効化
+# Mock ADを無効匁E
 USE_MOCK_AD=false
 
-# 実際のAD設定
+# 実際のAD設宁E
 AD_SERVER_URL=ldaps://ad.company.com:636
 AD_BASE_DN=DC=company,DC=com
 AD_TIMEOUT=10
@@ -212,35 +212,35 @@ AD_TIMEOUT=10
 npx cdk deploy --profile dev
 ```
 
-#### 4. 接続テスト
+#### 4. 接続テスチE
 
 ```bash
-# Lambda関数のログを確認
+# Lambda関数のログを確誁E
 aws logs tail /aws/lambda/FaceAuth-Enrollment --follow --profile dev
 
-# 期待されるログ:
+# 期征E��れるログ:
 # "Using REAL AD Connector: ldaps://ad.company.com:636"
-# "AD verification successful for 123456"
+# "AD verification successful for 1234567"
 ```
 
 ---
 
-## 🐛 トラブルシューティング
+## 🐛 トラブルシューチE��ング
 
-### 問題1: Mock ADが使用されない
+### 問顁E: Mock ADが使用されなぁE
 
-**症状:**
+**痁E��:**
 ```
 Using REAL AD Connector: ldaps://ad.company.com:636
 LDAPSocketOpenError: Failed to connect to AD server
 ```
 
 **原因:**
-- `USE_MOCK_AD` 環境変数が `false` に設定されている
+- `USE_MOCK_AD` 環墁E��数ぁE`false` に設定されてぁE��
 
-**解決策:**
+**解決筁E**
 ```bash
-# .envファイル確認
+# .envファイル確誁E
 cat .env | grep USE_MOCK_AD
 
 # trueに変更
@@ -250,51 +250,51 @@ USE_MOCK_AD=true
 npx cdk deploy --profile dev
 ```
 
-### 問題2: 社員番号が認証されない
+### 問顁E: 社員番号が認証されなぁE
 
-**症状:**
+**痁E��:**
 ```
 [MOCK] Invalid employee_id format: ABC123
 ```
 
 **原因:**
-- 社員番号が6桁の数字ではない
+- 社員番号ぁE桁�E数字ではなぁE
 
-**解決策:**
-- 社員番号は必ず6桁の数字にしてください（例: "123456"）
-- OCRで正しく抽出されているか確認
+**解決筁E**
+- 社員番号は忁E��6桁�E数字にしてください�E�侁E "1234567"�E�E
+- OCRで正しく抽出されてぁE��か確誁E
 
-### 問題3: アカウント無効化エラー
+### 問顁E: アカウント無効化エラー
 
-**症状:**
+**痁E��:**
 ```
-[MOCK] Account is disabled: 999999
+[MOCK] Account is disabled: 9999999
 ```
 
 **原因:**
-- テスト用の無効アカウント（999999）を使用している
+- チE��ト用の無効アカウント！E99999�E�を使用してぁE��
 
-**解決策:**
-- 有効なアカウント（123456, 789012, 345678）を使用
-- または、他の6桁の社員番号を使用
+**解決筁E**
+- 有効なアカウント！E23456, 7890123, 3456789�E�を使用
+- また�E、他�E6桁�E社員番号を使用
 
 ---
 
-## 📊 Mock ADとReal ADの比較
+## 📊 Mock ADとReal ADの比輁E
 
-| 項目 | Mock AD | Real AD |
+| 頁E�� | Mock AD | Real AD |
 |------|---------|---------|
-| **接続** | 不要 | Direct Connect/VPN必要 |
-| **認証** | 常に成功（6桁の数字） | 実際のAD認証 |
-| **社員データ** | モックデータ | 実際のADデータ |
-| **パスワード** | 任意の文字列でOK | 実際のADパスワード |
-| **レスポンス時間** | 50-300ms（シミュレート） | 実際のネットワーク遅延 |
-| **用途** | 開発・テスト | 本番環境 |
-| **セキュリティ** | ❌ 低い | ✅ 高い |
+| **接綁E* | 不要E| Direct Connect/VPN忁E��E|
+| **認証** | 常に成功�E�E桁�E数字！E| 実際のAD認証 |
+| **社員チE�Eタ** | モチE��チE�Eタ | 実際のADチE�Eタ |
+| **パスワーチE* | 任意�E斁E���EでOK | 実際のADパスワーチE|
+| **レスポンス時間** | 50-300ms�E�シミュレート！E| 実際のネットワーク遁E�� |
+| **用送E* | 開発・チE��チE| 本番環墁E|
+| **セキュリチE��** | ❁E低い | ✁E高い |
 
 ---
 
-## 📝 コード例
+## 📝 コード侁E
 
 ### Mock AD Connectorの使用
 
@@ -308,17 +308,17 @@ ad_connector = create_ad_connector(use_mock=True)
 from lambda.shared.models import EmployeeInfo
 
 employee_info = EmployeeInfo(
-    employee_id="123456",
-    name="山田太郎",
+    employee_id="1234567",
+    name="山田太郁E,
     department="開発部"
 )
 
-result = ad_connector.verify_employee("123456", employee_info)
+result = ad_connector.verify_employee("1234567", employee_info)
 
 if result.success:
-    print(f"✅ 認証成功: {result.employee_data}")
+    print(f"✁E認証成功: {result.employee_data}")
 else:
-    print(f"❌ 認証失敗: {result.error}")
+    print(f"❁E認証失敁E {result.error}")
 ```
 
 ### Real AD Connectorの使用
@@ -334,62 +334,62 @@ ad_connector = create_ad_connector(
     timeout=10
 )
 
-# 社員検証（実際のADに接続）
-result = ad_connector.verify_employee("123456", employee_info)
+# 社員検証�E�実際のADに接続！E
+result = ad_connector.verify_employee("1234567", employee_info)
 ```
 
 ---
 
-## ✅ チェックリスト
+## ✁EチェチE��リスチE
 
-### Mock AD使用時
+### Mock AD使用晁E
 
-- [ ] `.env` ファイルで `USE_MOCK_AD=true` を設定
-- [ ] CDKデプロイ完了
-- [ ] Lambda関数のログで `[MOCK]` メッセージを確認
-- [ ] 6桁の社員番号でテスト
-- [ ] 社員登録フローが動作することを確認
-- [ ] 緊急認証フローが動作することを確認
+- [ ] `.env` ファイルで `USE_MOCK_AD=true` を設宁E
+- [ ] CDKチE�Eロイ完亁E
+- [ ] Lambda関数のログで `[MOCK]` メチE��ージを確誁E
+- [ ] 6桁�E社員番号でチE��チE
+- [ ] 社員登録フローが動作することを確誁E
+- [ ] 緊急認証フローが動作することを確誁E
 
-### Real AD切り替え時
+### Real AD刁E��替え時
 
-- [ ] Direct Connect/VPN接続が確立されている
-- [ ] `.env` ファイルで `USE_MOCK_AD=false` を設定
-- [ ] `AD_SERVER_URL` と `AD_BASE_DN` を正しく設定
-- [ ] CDK再デプロイ完了
-- [ ] Lambda関数のログで `Using REAL AD Connector` を確認
-- [ ] 実際の社員番号とパスワードでテスト
-- [ ] AD接続が正常に動作することを確認
-
----
-
-## 📚 関連ドキュメント
-
-- `lambda/shared/ad_connector_mock.py` - Mock AD Connectorの実装
-- `lambda/shared/ad_connector.py` - Real AD Connectorの実装
-- `AD_CONNECTION_GUIDE.md` - AD接続設定ガイド
-- `QUICK_START_TESTING_GUIDE.md` - テストガイド
+- [ ] Direct Connect/VPN接続が確立されてぁE��
+- [ ] `.env` ファイルで `USE_MOCK_AD=false` を設宁E
+- [ ] `AD_SERVER_URL` と `AD_BASE_DN` を正しく設宁E
+- [ ] CDK再デプロイ完亁E
+- [ ] Lambda関数のログで `Using REAL AD Connector` を確誁E
+- [ ] 実際の社員番号とパスワードでチE��チE
+- [ ] AD接続が正常に動作することを確誁E
 
 ---
 
-## 🎯 まとめ
+## 📚 関連ドキュメンチE
+
+- `lambda/shared/ad_connector_mock.py` - Mock AD Connectorの実裁E
+- `lambda/shared/ad_connector.py` - Real AD Connectorの実裁E
+- `AD_CONNECTION_GUIDE.md` - AD接続設定ガイチE
+- `QUICK_START_TESTING_GUIDE.md` - チE��トガイチE
+
+---
+
+## 🎯 まとめE
 
 ### Mock AD Connectorの利点
 
-1. ✅ **AD接続不要** - Direct Connect/VPN設定なしでテスト可能
-2. ✅ **簡単なテスト** - 6桁の社員番号だけで認証可能
-3. ✅ **高速** - ネットワーク遅延なし
-4. ✅ **開発効率向上** - すぐにシステムをテスト可能
+1. ✁E**AD接続不要E* - Direct Connect/VPN設定なしでチE��ト可能
+2. ✁E**簡単なチE��チE* - 6桁�E社員番号だけで認証可能
+3. ✁E**高送E* - ネットワーク遁E��なぁE
+4. ✁E**開発効玁E��丁E* - すぐにシスチE��をテスト可能
 
-### 使用上の注意
+### 使用上�E注愁E
 
-1. ⚠️ **開発・テスト専用** - 本番環境では使用しない
-2. ⚠️ **セキュリティ** - 実際の認証は行われない
-3. ⚠️ **データ** - モックデータのみ
-4. ⚠️ **切り替え** - 本番前に必ずReal ADに切り替える
+1. ⚠�E�E**開発・チE��ト専用** - 本番環墁E��は使用しなぁE
+2. ⚠�E�E**セキュリチE��** - 実際の認証は行われなぁE
+3. ⚠�E�E**チE�Eタ** - モチE��チE�Eタのみ
+4. ⚠�E�E**刁E��替ぁE* - 本番前に忁E��Real ADに刁E��替える
 
 ---
 
-**作成日:** 2026年1月28日  
-**バージョン:** 1.0
+**作�E日:** 2026年1朁E8日  
+**バ�Eジョン:** 1.0
 

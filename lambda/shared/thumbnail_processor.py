@@ -111,7 +111,7 @@ class ThumbnailProcessor:
         enroll/{employee_id}/face_thumbnail.jpg
         
         Args:
-            employee_id: Employee identifier (6-digit string)
+            employee_id: Employee identifier (7-digit string)
             thumbnail_bytes: Processed thumbnail image bytes
             
         Returns:
@@ -398,7 +398,7 @@ def create_thumbnail_processor(bucket_name: Optional[str] = None,
 
 def validate_employee_id_format(employee_id: str) -> bool:
     """
-    Validate employee ID format (6 digits)
+    Validate employee ID format (7 digits)
     
     Args:
         employee_id: Employee identifier to validate
@@ -406,4 +406,4 @@ def validate_employee_id_format(employee_id: str) -> bool:
     Returns:
         bool: True if format is valid
     """
-    return len(employee_id) == 6 and employee_id.isdigit()
+    return len(employee_id) == 7 and employee_id.isdigit()

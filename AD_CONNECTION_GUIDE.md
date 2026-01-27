@@ -1,53 +1,53 @@
-# Active Directory 接続ガイド
+# Active Directory 接続ガイチE
 
-## 📍 現在の接続状況
+## 📍 現在の接続状況E
 
-### ⚠️ 重要: AD接続は未設定
+### ⚠�E�E重要E AD接続�E未設宁E
 
-現在、Active Directory (AD) への接続は**設定されていません**。
-ADConnectorのコードは実装済みですが、実際のオンプレミスADサーバーへの接続設定が必要です。
+現在、Active Directory (AD) への接続�E**設定されてぁE��せん**、E
+ADConnectorのコード�E実裁E��みですが、実際のオンプレミスADサーバ�Eへの接続設定が忁E��です、E
 
 ---
 
-## 🔌 AD接続の仕組み
+## 🔌 AD接続�E仕絁E��
 
-### 接続方式
+### 接続方弁E
 
-Face-Auth IdP System は、以下の方式でオンプレミスActive Directoryに接続します：
+Face-Auth IdP System は、以下�E方式でオンプレミスActive Directoryに接続します！E
 
 ```
 AWS VPC (Private Subnet)
-    ↓
+    ↁE
 Lambda関数 (ADConnector)
-    ↓
-Direct Connect または VPN
-    ↓
+    ↁE
+Direct Connect また�E VPN
+    ↁE
 オンプレミスネットワーク (10.0.0.0/8)
-    ↓
-Active Directory サーバー (LDAPS: 636)
+    ↁE
+Active Directory サーバ�E (LDAPS: 636)
 ```
 
 ### プロトコル
 
-- **LDAPS (LDAP over SSL)** - ポート 636（推奨）
-- **LDAP** - ポート 389（フォールバック）
+- **LDAPS (LDAP over SSL)** - ポ�EチE636�E�推奨�E�E
+- **LDAP** - ポ�EチE389�E�フォールバック�E�E
 
 ---
 
-## 🏗️ 現在のインフラ設定
+## 🏗�E�E現在のインフラ設宁E
 
-### VPC構成
+### VPC構�E
 
 **VPC CIDR:** `10.0.0.0/16`
 
-**サブネット:**
+**サブネチE��:**
 - Public Subnet: NAT Gateway配置
-- Private Subnet: Lambda関数配置 ✅
-- Isolated Subnet: 将来の拡張用
+- Private Subnet: Lambda関数配置 ✁E
+- Isolated Subnet: 封E��の拡張用
 
-### セキュリティグループ
+### セキュリチE��グルーチE
 
-**ADSecurityGroup** がLambda関数にアタッチされています：
+**ADSecurityGroup** がLambda関数にアタチE��されてぁE��す！E
 
 ```python
 # LDAPS (推奨)
@@ -65,9 +65,9 @@ Outbound Rule:
   Description: LDAP traffic to on-premises Active Directory
 ```
 
-### Customer Gateway（プレースホルダー）
+### Customer Gateway�E��Eレースホルダー�E�E
 
-現在、インフラコードには以下のプレースホルダーが設定されています：
+現在、インフラコードには以下�Eプレースホルダーが設定されてぁE��す！E
 
 ```python
 # infrastructure/face_auth_stack.py (コメントアウト済み)
@@ -75,7 +75,7 @@ Outbound Rule:
 # self.customer_gateway = ec2.CfnCustomerGateway(
 #     self, "OnPremisesCustomerGateway",
 #     bgp_asn=65000,  # Private ASN for on-premises
-#     ip_address="YOUR_ACTUAL_IP_HERE",  # ⚠️ 実際のIPに変更必要
+#     ip_address="YOUR_ACTUAL_IP_HERE",  # ⚠�E�E実際のIPに変更忁E��E
 #     type="ipsec.1",
 #     tags=[{
 #         "key": "Name",
@@ -86,65 +86,65 @@ Outbound Rule:
 
 ---
 
-## 🔧 AD接続の設定手順
+## 🔧 AD接続�E設定手頁E
 
-### オプション1: AWS Direct Connect（推奨）
+### オプション1: AWS Direct Connect�E�推奨�E�E
 
-**メリット:**
-- 専用線による安定した接続
-- 低レイテンシー
-- 高セキュリティ
+**メリチE��:**
+- 専用線による安定した接綁E
+- 低レイチE��シー
+- 高セキュリチE��
 
-**手順:**
+**手頁E**
 
-#### 1. Direct Connect接続の確立
+#### 1. Direct Connect接続�E確竁E
 
 ```bash
-# 1. Direct Connect Locationの選択
+# 1. Direct Connect Locationの選抁E
 # AWS Console > Direct Connect > Connections > Create Connection
 
-# 2. 接続タイプの選択
+# 2. 接続タイプ�E選抁E
 # - Dedicated Connection (1Gbps, 10Gbps, 100Gbps)
 # - Hosted Connection (50Mbps - 10Gbps)
 
 # 3. ネットワークプロバイダーとの調整
-# - LOA-CFA (Letter of Authorization and Connecting Facility Assignment) 取得
-# - プロバイダーに物理接続を依頼
+# - LOA-CFA (Letter of Authorization and Connecting Facility Assignment) 取征E
+# - プロバイダーに物琁E��続を依頼
 ```
 
-#### 2. Virtual Private Gateway作成
+#### 2. Virtual Private Gateway作�E
 
 ```bash
-# Virtual Private Gateway作成
+# Virtual Private Gateway作�E
 aws ec2 create-vpn-gateway \
   --type ipsec.1 \
   --amazon-side-asn 64512 \
   --tag-specifications 'ResourceType=vpn-gateway,Tags=[{Key=Name,Value=FaceAuth-VGW}]' \
   --profile dev
 
-# VPCにアタッチ
+# VPCにアタチE��
 aws ec2 attach-vpn-gateway \
   --vpn-gateway-id vgw-xxxxx \
   --vpc-id vpc-0af2750e674368e60 \
   --profile dev
 ```
 
-#### 3. Customer Gateway作成
+#### 3. Customer Gateway作�E
 
 ```bash
-# Customer Gateway作成（オンプレミス側）
+# Customer Gateway作�E�E�オンプレミス側�E�E
 aws ec2 create-customer-gateway \
   --type ipsec.1 \
-  --public-ip <オンプレミスゲートウェイのパブリックIP> \
+  --public-ip <オンプレミスゲートウェイのパブリチE��IP> \
   --bgp-asn 65000 \
   --tag-specifications 'ResourceType=customer-gateway,Tags=[{Key=Name,Value=FaceAuth-CGW}]' \
   --profile dev
 ```
 
-#### 4. Direct Connect Gateway作成
+#### 4. Direct Connect Gateway作�E
 
 ```bash
-# Direct Connect Gateway作成
+# Direct Connect Gateway作�E
 aws directconnect create-direct-connect-gateway \
   --direct-connect-gateway-name FaceAuth-DXGW \
   --amazon-side-asn 64512 \
@@ -168,9 +168,9 @@ aws ec2 create-route \
   --profile dev
 ```
 
-#### 6. CDKコードの更新
+#### 6. CDKコード�E更新
 
-`infrastructure/face_auth_stack.py` を編集：
+`infrastructure/face_auth_stack.py` を編雁E��E
 
 ```python
 # Customer Gatewayのコメントアウトを解除
@@ -196,7 +196,7 @@ self.vpn_gateway = ec2.CfnVPNGateway(
     }]
 )
 
-# VPCにアタッチ
+# VPCにアタチE��
 ec2.CfnVPCGatewayAttachment(
     self, "VPNGatewayAttachment",
     vpc_id=self.vpc.vpc_id,
@@ -206,31 +206,31 @@ ec2.CfnVPCGatewayAttachment(
 
 ---
 
-### オプション2: Site-to-Site VPN（低コスト）
+### オプション2: Site-to-Site VPN�E�低コスト！E
 
-**メリット:**
-- 低コスト
-- 迅速なセットアップ
-- インターネット経由（暗号化）
+**メリチE��:**
+- 低コスチE
+- 迁E��なセチE��アチE�E
+- インターネット経由�E�暗号化！E
 
-**デメリット:**
-- レイテンシーが高い
-- 帯域幅が限られる
+**チE��リチE��:**
+- レイチE��シーが高い
+- 帯域幁E��限られる
 
-**手順:**
+**手頁E**
 
-#### 1. Customer Gateway作成
+#### 1. Customer Gateway作�E
 
 ```bash
 aws ec2 create-customer-gateway \
   --type ipsec.1 \
-  --public-ip <オンプレミスゲートウェイのパブリックIP> \
+  --public-ip <オンプレミスゲートウェイのパブリチE��IP> \
   --bgp-asn 65000 \
   --tag-specifications 'ResourceType=customer-gateway,Tags=[{Key=Name,Value=FaceAuth-CGW}]' \
   --profile dev
 ```
 
-#### 2. Virtual Private Gateway作成
+#### 2. Virtual Private Gateway作�E
 
 ```bash
 aws ec2 create-vpn-gateway \
@@ -245,7 +245,7 @@ aws ec2 attach-vpn-gateway \
   --profile dev
 ```
 
-#### 3. VPN Connection作成
+#### 3. VPN Connection作�E
 
 ```bash
 aws ec2 create-vpn-connection \
@@ -257,9 +257,9 @@ aws ec2 create-vpn-connection \
   --profile dev
 ```
 
-#### 4. オンプレミス側の設定
+#### 4. オンプレミス側の設宁E
 
-VPN Connection作成後、設定ファイルをダウンロード：
+VPN Connection作�E後、設定ファイルをダウンロード！E
 
 ```bash
 aws ec2 describe-vpn-connections \
@@ -267,64 +267,64 @@ aws ec2 describe-vpn-connections \
   --profile dev
 ```
 
-設定ファイルをオンプレミスのVPNデバイスに適用。
+設定ファイルをオンプレミスのVPNチE��イスに適用、E
 
 ---
 
-### オプション3: AWS Client VPN（テスト用）
+### オプション3: AWS Client VPN�E�テスト用�E�E
 
-**用途:** 開発・テスト環境のみ
+**用送E** 開発・チE��ト環墁E�Eみ
 
-**メリット:**
+**メリチE��:**
 - 個人のPCから直接接続可能
-- セットアップが簡単
+- セチE��アチE�Eが簡十E
 
-**デメリット:**
-- 本番環境には不適切
+**チE��リチE��:**
+- 本番環墁E��は不適刁E
 - コストが高い
 
 ---
 
-## 🔐 ADConnectorの設定
+## 🔐 ADConnectorの設宁E
 
-### 環境変数
+### 環墁E��数
 
-Lambda関数に以下の環境変数を追加する必要があります：
+Lambda関数に以下�E環墁E��数を追加する忁E��があります！E
 
 ```bash
-# ADサーバー設定
+# ADサーバ�E設宁E
 AD_SERVER_URL=ldaps://ad.company.com:636
 AD_BASE_DN=DC=company,DC=com
 AD_TIMEOUT=10
 
-# オプション: サービスアカウント（匿名バインドを使用しない場合）
+# オプション: サービスアカウント（匿名バインドを使用しなぁE��合！E
 AD_SERVICE_USER=CN=ServiceAccount,OU=ServiceAccounts,DC=company,DC=com
-AD_SERVICE_PASSWORD=<Secrets Managerから取得>
+AD_SERVICE_PASSWORD=<Secrets Managerから取征E
 ```
 
-### CDKコードの更新
+### CDKコード�E更新
 
-`infrastructure/face_auth_stack.py` を編集：
+`infrastructure/face_auth_stack.py` を編雁E��E
 
 ```python
-# Lambda環境変数に追加
+# Lambda環墁E��数に追加
 "environment": {
-    # 既存の環境変数...
+    # 既存�E環墁E��数...
     "AD_SERVER_URL": os.getenv("AD_SERVER_URL", "ldaps://ad.company.com:636"),
     "AD_BASE_DN": os.getenv("AD_BASE_DN", "DC=company,DC=com"),
     "AD_TIMEOUT": "10",
-    # オプション: サービスアカウント
+    # オプション: サービスアカウンチE
     "AD_SERVICE_USER": os.getenv("AD_SERVICE_USER", ""),
     "AD_SERVICE_PASSWORD": f"{{{{resolve:secretsmanager:{ad_secret_arn}:SecretString:password}}}}"
 }
 ```
 
-### Secrets Managerの設定（推奨）
+### Secrets Managerの設定（推奨�E�E
 
-ADパスワードはSecrets Managerに保存：
+ADパスワード�ESecrets Managerに保存！E
 
 ```bash
-# Secret作成
+# Secret作�E
 aws secretsmanager create-secret \
   --name FaceAuth/AD/ServiceAccount \
   --description "AD Service Account Credentials" \
@@ -340,30 +340,30 @@ aws iam attach-role-policy \
 
 ---
 
-## 🧪 接続テスト
+## 🧪 接続テスチE
 
-### 1. ネットワーク接続テスト
+### 1. ネットワーク接続テスチE
 
-Lambda関数から以下のコマンドでテスト：
+Lambda関数から以下�EコマンドでチE��ト！E
 
 ```python
 import socket
 
 def test_ad_connection():
     try:
-        # LDAPS接続テスト
+        # LDAPS接続テスチE
         sock = socket.create_connection(("ad.company.com", 636), timeout=10)
         sock.close()
-        print("✅ LDAPS connection successful")
+        print("✁ELDAPS connection successful")
         return True
     except Exception as e:
-        print(f"❌ LDAPS connection failed: {e}")
+        print(f"❁ELDAPS connection failed: {e}")
         return False
 ```
 
-### 2. LDAP接続テスト
+### 2. LDAP接続テスチE
 
-ADConnectorの`test_connection()`メソッドを使用：
+ADConnectorの`test_connection()`メソチE��を使用�E�E
 
 ```python
 from lambda.shared.ad_connector import ADConnector
@@ -378,55 +378,55 @@ success, message = ad_connector.test_connection()
 print(f"Connection test: {message}")
 ```
 
-### 3. 社員検証テスト
+### 3. 社員検証チE��チE
 
 ```python
 from lambda.shared.models import EmployeeInfo
 
 employee_info = EmployeeInfo(
-    employee_id="123456",
-    name="山田太郎",
+    employee_id="1234567",
+    name="山田太郁E,
     department="開発部"
 )
 
-result = ad_connector.verify_employee("123456", employee_info)
+result = ad_connector.verify_employee("1234567", employee_info)
 
 if result.success:
-    print(f"✅ Employee verified: {result.employee_data}")
+    print(f"✁EEmployee verified: {result.employee_data}")
 else:
-    print(f"❌ Verification failed: {result.error}")
+    print(f"❁EVerification failed: {result.error}")
 ```
 
-### 4. パスワード認証テスト
+### 4. パスワード認証チE��チE
 
 ```python
-result = ad_connector.authenticate_password("123456", "password123")
+result = ad_connector.authenticate_password("1234567", "password123")
 
 if result.success:
-    print(f"✅ Authentication successful")
+    print(f"✁EAuthentication successful")
 else:
-    print(f"❌ Authentication failed: {result.error}")
+    print(f"❁EAuthentication failed: {result.error}")
 ```
 
 ---
 
-## 📊 ADConnectorの動作
+## 📊 ADConnectorの動佁E
 
 ### 社員検証フロー
 
 ```
 1. Lambda関数 (handle_enrollment)
-   ↓
+   ↁE
 2. ADConnector.verify_employee()
-   ↓
-3. LDAPS接続 (ldaps://ad.company.com:636)
-   ↓
+   ↁE
+3. LDAPS接綁E(ldaps://ad.company.com:636)
+   ↁE
 4. LDAP検索 (employeeID={employee_id})
-   ↓
-5. アカウント状態確認 (userAccountControl)
-   ↓
-6. 社員情報比較
-   ↓
+   ↁE
+5. アカウント状態確誁E(userAccountControl)
+   ↁE
+6. 社員惁E��比輁E
+   ↁE
 7. 結果返却 (ADVerificationResult)
 ```
 
@@ -434,52 +434,52 @@ else:
 
 ```
 1. Lambda関数 (handle_emergency_auth)
-   ↓
+   ↁE
 2. ADConnector.authenticate_password()
-   ↓
-3. LDAPS接続
-   ↓
+   ↁE
+3. LDAPS接綁E
+   ↁE
 4. 社員DN検索
-   ↓
-5. アカウント状態確認
-   ↓
-6. LDAP Bind試行（パスワード検証）
-   ↓
+   ↁE
+5. アカウント状態確誁E
+   ↁE
+6. LDAP Bind試行（パスワード検証�E�E
+   ↁE
 7. 結果返却 (ADVerificationResult)
 ```
 
-### タイムアウト管理
+### タイムアウト管琁E
 
-- **AD接続タイムアウト:** 10秒
-- **Lambda全体タイムアウト:** 15秒
-- **タイムアウト超過時:** エラーコード `AD_CONNECTION_ERROR` を返却
+- **AD接続タイムアウチE** 10私E
+- **Lambda全体タイムアウチE** 15私E
+- **タイムアウト趁E��晁E** エラーコーチE`AD_CONNECTION_ERROR` を返却
 
 ---
 
-## 🔒 セキュリティ考慮事項
+## 🔒 セキュリチE��老E�E事頁E
 
-### 1. LDAPS使用（推奨）
+### 1. LDAPS使用�E�推奨�E�E
 
 ```python
-# Good: LDAPS (暗号化)
+# Good: LDAPS (暗号匁E
 server_url = "ldaps://ad.company.com:636"
 
-# Bad: LDAP (平文)
+# Bad: LDAP (平斁E
 server_url = "ldap://ad.company.com:389"
 ```
 
-### 2. サービスアカウントの最小権限
+### 2. サービスアカウント�E最小権陁E
 
-ADサービスアカウントには以下の権限のみ付与：
+ADサービスアカウントには以下�E権限�Eみ付与！E
 
-- ✅ 社員情報の読み取り
-- ✅ パスワード検証（Bind操作）
-- ❌ 書き込み権限は不要
-- ❌ 管理者権限は不要
+- ✁E社員惁E��の読み取り
+- ✁Eパスワード検証�E�Eind操作！E
+- ❁E書き込み権限�E不要E
+- ❁E管琁E��E��限�E不要E
 
 ### 3. Secrets Manager使用
 
-パスワードはコードにハードコードせず、Secrets Managerに保存：
+パスワード�Eコードにハ�Eドコードせず、Secrets Managerに保存！E
 
 ```python
 import boto3
@@ -492,54 +492,54 @@ def get_ad_credentials():
     return secret['username'], secret['password']
 ```
 
-### 4. ネットワーク分離
+### 4. ネットワーク刁E��
 
-- ✅ Lambda関数はPrivate Subnetに配置
-- ✅ セキュリティグループで通信制限
-- ✅ Direct Connect経由で安全な接続
+- ✁ELambda関数はPrivate Subnetに配置
+- ✁EセキュリチE��グループで通信制陁E
+- ✁EDirect Connect経由で安�Eな接綁E
 
 ---
 
-## 🐛 トラブルシューティング
+## 🐛 トラブルシューチE��ング
 
-### 問題1: 接続タイムアウト
+### 問顁E: 接続タイムアウチE
 
-**症状:**
+**痁E��:**
 ```
 AD connection timeout exceeded: 10.00s
 ```
 
 **原因:**
-- Direct Connect/VPN接続が確立されていない
-- ルートテーブルが正しく設定されていない
-- セキュリティグループでポート636/389が許可されていない
+- Direct Connect/VPN接続が確立されてぁE��ぁE
+- ルートテーブルが正しく設定されてぁE��ぁE
+- セキュリチE��グループでポ�EチE36/389が許可されてぁE��ぁE
 
-**解決策:**
+**解決筁E**
 ```bash
-# 1. VPN/Direct Connect状態確認
+# 1. VPN/Direct Connect状態確誁E
 aws ec2 describe-vpn-connections --profile dev
 
-# 2. ルートテーブル確認
+# 2. ルートテーブル確誁E
 aws ec2 describe-route-tables --filters "Name=vpc-id,Values=vpc-0af2750e674368e60" --profile dev
 
-# 3. セキュリティグループ確認
+# 3. セキュリチE��グループ確誁E
 aws ec2 describe-security-groups --group-names ADSecurityGroup --profile dev
 ```
 
-### 問題2: LDAP Bind失敗
+### 問顁E: LDAP Bind失敁E
 
-**症状:**
+**痁E��:**
 ```
 LDAPBindError: invalid credentials
 ```
 
 **原因:**
-- サービスアカウントのパスワードが間違っている
-- サービスアカウントが無効化されている
+- サービスアカウント�Eパスワードが間違ってぁE��
+- サービスアカウントが無効化されてぁE��
 
-**解決策:**
+**解決筁E**
 ```bash
-# Secrets Manager確認
+# Secrets Manager確誁E
 aws secretsmanager get-secret-value --secret-id FaceAuth/AD/ServiceAccount --profile dev
 
 # パスワード更新
@@ -549,119 +549,119 @@ aws secretsmanager update-secret \
   --profile dev
 ```
 
-### 問題3: 社員が見つからない
+### 問顁E: 社員が見つからなぁE
 
-**症状:**
+**痁E��:**
 ```
-Employee not found in AD: 123456
+Employee not found in AD: 1234567
 ```
 
 **原因:**
-- Base DNが間違っている
-- 社員IDの属性名が異なる（`employeeID` vs `employeeNumber`）
+- Base DNが間違ってぁE��
+- 社員IDの属性名が異なる！EemployeeID` vs `employeeNumber`�E�E
 
-**解決策:**
+**解決筁E**
 
-ADConnectorのコードを修正：
+ADConnectorのコードを修正�E�E
 
 ```python
-# 属性名を確認
+# 属性名を確誁E
 search_filter = f"(employeeNumber={employee_id})"  # employeeIDではなくemployeeNumber
 
-# Base DNを確認
-base_dn = "OU=Employees,DC=company,DC=com"  # より具体的なOUを指定
+# Base DNを確誁E
+base_dn = "OU=Employees,DC=company,DC=com"  # より具体的なOUを指宁E
 ```
 
-### 問題4: アカウント無効化エラー
+### 問顁E: アカウント無効化エラー
 
-**症状:**
+**痁E��:**
 ```
-AD account is disabled: 123456
+AD account is disabled: 1234567
 ```
 
 **原因:**
-- ADでアカウントが無効化されている
+- ADでアカウントが無効化されてぁE��
 
-**解決策:**
-- AD管理者にアカウントの有効化を依頼
-- または、テスト用に別のアカウントを使用
+**解決筁E**
+- AD管琁E��E��アカウント�E有効化を依頼
+- また�E、テスト用に別のアカウントを使用
 
 ---
 
-## 📋 チェックリスト
+## 📋 チェチE��リスチE
 
 ### AD接続設定前
 
-- [ ] オンプレミスADサーバーのIPアドレス確認
-- [ ] LDAPS (ポート636) が有効か確認
-- [ ] Base DN確認（例: `DC=company,DC=com`）
-- [ ] サービスアカウント作成（読み取り権限のみ）
-- [ ] ネットワークプロバイダーとの調整（Direct Connect使用時）
+- [ ] オンプレミスADサーバ�EのIPアドレス確誁E
+- [ ] LDAPS (ポ�EチE36) が有効か確誁E
+- [ ] Base DN確認（侁E `DC=company,DC=com`�E�E
+- [ ] サービスアカウント作�E�E�読み取り権限�Eみ�E�E
+- [ ] ネットワークプロバイダーとの調整�E�Eirect Connect使用時！E
 
-### AWS側設定
+### AWS側設宁E
 
-- [ ] Customer Gateway作成
-- [ ] Virtual Private Gateway作成
-- [ ] Direct Connect Gateway作成（Direct Connect使用時）
-- [ ] VPN Connection作成（VPN使用時）
-- [ ] ルートテーブル更新（10.0.0.0/8 → VGW）
-- [ ] セキュリティグループ確認（ポート636/389許可）
-- [ ] Secrets Manager設定（サービスアカウント）
-- [ ] Lambda環境変数設定
+- [ ] Customer Gateway作�E
+- [ ] Virtual Private Gateway作�E
+- [ ] Direct Connect Gateway作�E�E�Eirect Connect使用時！E
+- [ ] VPN Connection作�E�E�EPN使用時！E
+- [ ] ルートテーブル更新�E�E0.0.0.0/8 ↁEVGW�E�E
+- [ ] セキュリチE��グループ確認（�EーチE36/389許可�E�E
+- [ ] Secrets Manager設定（サービスアカウント！E
+- [ ] Lambda環墁E��数設宁E
 
-### テスト
+### チE��チE
 
-- [ ] ネットワーク接続テスト（ポート636）
-- [ ] LDAP接続テスト（`test_connection()`）
-- [ ] 社員検証テスト（`verify_employee()`）
-- [ ] パスワード認証テスト（`authenticate_password()`）
-- [ ] タイムアウトテスト（10秒制限）
-
----
-
-## 📚 関連ドキュメント
-
-- `lambda/shared/ad_connector.py` - ADConnectorの実装
-- `docs/INFRASTRUCTURE_ARCHITECTURE.md` - インフラアーキテクチャ
-- `DEPLOYMENT_STATUS_REPORT.md` - デプロイ状況
+- [ ] ネットワーク接続テスト（�EーチE36�E�E
+- [ ] LDAP接続テスト！Etest_connection()`�E�E
+- [ ] 社員検証チE��ト！Everify_employee()`�E�E
+- [ ] パスワード認証チE��ト！Eauthenticate_password()`�E�E
+- [ ] タイムアウトテスト！E0秒制限！E
 
 ---
 
-## 🎯 まとめ
+## 📚 関連ドキュメンチE
 
-### 現在の状況
+- `lambda/shared/ad_connector.py` - ADConnectorの実裁E
+- `docs/INFRASTRUCTURE_ARCHITECTURE.md` - インフラアーキチE��チャ
+- `DEPLOYMENT_STATUS_REPORT.md` - チE�Eロイ状況E
 
-- ✅ ADConnectorコード実装済み
-- ✅ セキュリティグループ設定済み（ポート636/389許可）
-- ✅ Lambda関数はPrivate Subnetに配置済み
-- ⚠️ **Direct Connect/VPN接続は未設定**
-- ⚠️ **AD環境変数は未設定**
+---
 
-### 次のステップ
+## 🎯 まとめE
 
-1. **Direct ConnectまたはVPN接続の確立**
+### 現在の状況E
+
+- ✁EADConnectorコード実裁E��み
+- ✁EセキュリチE��グループ設定済み�E��EーチE36/389許可�E�E
+- ✁ELambda関数はPrivate Subnetに配置済み
+- ⚠�E�E**Direct Connect/VPN接続�E未設宁E*
+- ⚠�E�E**AD環墁E��数は未設宁E*
+
+### 次のスチE��チE
+
+1. **Direct Connectまた�EVPN接続�E確竁E*
    - ネットワークプロバイダーとの調整
-   - Customer Gateway/Virtual Private Gateway作成
+   - Customer Gateway/Virtual Private Gateway作�E
    - ルートテーブル更新
 
-2. **AD環境変数の設定**
+2. **AD環墁E��数の設宁E*
    - `AD_SERVER_URL`
    - `AD_BASE_DN`
    - `AD_SERVICE_USER` (オプション)
    - `AD_SERVICE_PASSWORD` (Secrets Manager)
 
-3. **接続テスト**
-   - ネットワーク接続確認
-   - LDAP接続確認
-   - 社員検証テスト
+3. **接続テスチE*
+   - ネットワーク接続確誁E
+   - LDAP接続確誁E
+   - 社員検証チE��チE
 
-4. **本番デプロイ**
+4. **本番チE�Eロイ**
    - CDKコード更新
    - 再デプロイ
-   - E2Eテスト
+   - E2EチE��チE
 
 ---
 
-**作成日:** 2026年1月28日  
-**バージョン:** 1.0
+**作�E日:** 2026年1朁E8日  
+**バ�Eジョン:** 1.0
 

@@ -1,17 +1,17 @@
-# 顔写真の蓄積場所ガイド
+# 顔�E真�E蓁E��場所ガイチE
 
-## 📍 概要
+## 📍 概要E
 
-Face-Auth IdP System では、顔写真は以下の2つの場所に蓄積されます：
+Face-Auth IdP System では、E���E真�E以下�E2つの場所に蓁E��されます！E
 
-1. **Amazon S3** - 画像ファイル（サムネイル）の保存
-2. **Amazon Rekognition Collection** - 顔特徴ベクトルの保存
+1. **Amazon S3** - 画像ファイル�E�サムネイル�E��E保孁E
+2. **Amazon Rekognition Collection** - 顔特徴ベクトルの保孁E
 
 ---
 
-## 🗂️ Amazon S3 バケット構造
+## 🗂�E�EAmazon S3 バケチE��構造
 
-### S3バケット名
+### S3バケチE��吁E
 ```
 face-auth-images-979431736455-ap-northeast-1
 ```
@@ -20,56 +20,56 @@ face-auth-images-979431736455-ap-northeast-1
 
 ```
 face-auth-images-979431736455-ap-northeast-1/
-├── enroll/                          # 社員登録時の顔写真（永久保存）
-│   ├── {employee_id}/
-│   │   └── face_thumbnail.jpg       # 200x200ピクセルのサムネイル
-│   ├── 123456/
-│   │   └── face_thumbnail.jpg
-│   └── 789012/
-│       └── face_thumbnail.jpg
-│
-├── logins/                          # ログイン試行時の顔写真（30日後自動削除）
-│   ├── 2026-01-28/
-│   │   ├── 20260128_120000_123456.jpg
-│   │   ├── 20260128_120530_unknown_a1b2c3d4.jpg
-│   │   └── 20260128_121000_789012.jpg
-│   └── 2026-01-29/
-│       └── ...
-│
-└── temp/                            # 一時処理ファイル（1日後自動削除）
+├── enroll/                          # 社員登録時�E顔�E真（永乁E��存！E
+━E  ├── {employee_id}/
+━E  ━E  └── face_thumbnail.jpg       # 200x200ピクセルのサムネイル
+━E  ├── 1234567/
+━E  ━E  └── face_thumbnail.jpg
+━E  └── 7890123/
+━E      └── face_thumbnail.jpg
+━E
+├── logins/                          # ログイン試行時の顔�E真！E0日後�E動削除�E�E
+━E  ├── 2026-01-28/
+━E  ━E  ├── 20260128_120000_1234567.jpg
+━E  ━E  ├── 20260128_120530_unknown_a1b2c3d4.jpg
+━E  ━E  └── 20260128_121000_7890123.jpg
+━E  └── 2026-01-29/
+━E      └── ...
+━E
+└── temp/                            # 一時�E琁E��ァイル�E�E日後�E動削除�E�E
     └── ...
 ```
 
 ---
 
-## 📂 詳細説明
+## 📂 詳細説昁E
 
-### 1. enroll/ フォルダ（社員登録）
+### 1. enroll/ フォルダ�E�社員登録�E�E
 
-**用途:** 社員登録時に撮影した顔写真を永久保存
+**用送E** 社員登録時に撮影した顔�E真を永乁E��孁E
 
 **保存パス:**
 ```
 enroll/{employee_id}/face_thumbnail.jpg
 ```
 
-**例:**
+**侁E**
 ```
-enroll/123456/face_thumbnail.jpg
-enroll/789012/face_thumbnail.jpg
+enroll/1234567/face_thumbnail.jpg
+enroll/7890123/face_thumbnail.jpg
 ```
 
 **特徴:**
-- ✅ **永久保存** - ライフサイクルポリシーなし
-- ✅ **200x200ピクセル** - 標準化されたサムネイル
-- ✅ **JPEG形式** - 品質85%で圧縮
-- ✅ **暗号化** - S3管理キー（AES256）で暗号化
-- ✅ **社員IDでフォルダ分け** - 管理しやすい構造
+- ✁E**永乁E��孁E* - ライフサイクルポリシーなぁE
+- ✁E**200x200ピクセル** - 標準化されたサムネイル
+- ✁E**JPEG形弁E* - 品質85%で圧縮
+- ✁E**暗号匁E* - S3管琁E��ー�E�EES256�E�で暗号匁E
+- ✁E**社員IDでフォルダ刁E��** - 管琁E��めE��ぁE��造
 
-**メタデータ:**
+**メタチE�Eタ:**
 ```json
 {
-  "employee_id": "123456",
+  "employee_id": "1234567",
   "image_type": "enrollment_thumbnail",
   "processed_at": "2026-01-28T12:00:00",
   "size": "200x200"
@@ -77,53 +77,53 @@ enroll/789012/face_thumbnail.jpg
 ```
 
 **保存タイミング:**
-- 社員登録フロー完了時
-- 再登録フロー完了時（既存画像を上書き）
+- 社員登録フロー完亁E��
+- 再登録フロー完亁E���E�既存画像を上書き！E
 
-**アクセス方法:**
+**アクセス方況E**
 ```bash
 # AWS CLI
-aws s3 cp s3://face-auth-images-979431736455-ap-northeast-1/enroll/123456/face_thumbnail.jpg ./
+aws s3 cp s3://face-auth-images-979431736455-ap-northeast-1/enroll/1234567/face_thumbnail.jpg ./
 
-# Lambda関数内
+# Lambda関数冁E
 s3_client.get_object(
     Bucket='face-auth-images-979431736455-ap-northeast-1',
-    Key='enroll/123456/face_thumbnail.jpg'
+    Key='enroll/1234567/face_thumbnail.jpg'
 )
 ```
 
 ---
 
-### 2. logins/ フォルダ（ログイン試行）
+### 2. logins/ フォルダ�E�ログイン試行！E
 
-**用途:** ログイン試行時の顔写真を記録（成功・失敗両方）
+**用送E** ログイン試行時の顔�E真を記録�E��E功�E失敗両方�E�E
 
 **保存パス:**
 ```
 logins/{date}/{timestamp}_{employee_id_or_unknown}.jpg
 ```
 
-**例:**
+**侁E**
 ```
 # 成功したログイン
-logins/2026-01-28/20260128_120000_123456.jpg
+logins/2026-01-28/20260128_120000_1234567.jpg
 
-# 失敗したログイン（社員ID不明）
+# 失敗したログイン�E�社員ID不�E�E�E
 logins/2026-01-28/20260128_120530_unknown_a1b2c3d4.jpg
 ```
 
 **特徴:**
-- ⏰ **30日後自動削除** - S3ライフサイクルポリシーで自動削除
-- ✅ **200x200ピクセル** - 標準化されたサムネイル
-- ✅ **JPEG形式** - 品質85%で圧縮
-- ✅ **暗号化** - S3管理キー（AES256）で暗号化
-- ✅ **日付でフォルダ分け** - 日次で整理
-- ✅ **タイムスタンプ付き** - 試行時刻を記録
+- ⏰ **30日後�E動削除** - S3ライフサイクルポリシーで自動削除
+- ✁E**200x200ピクセル** - 標準化されたサムネイル
+- ✁E**JPEG形弁E* - 品質85%で圧縮
+- ✁E**暗号匁E* - S3管琁E��ー�E�EES256�E�で暗号匁E
+- ✁E**日付でフォルダ刁E��** - 日次で整琁E
+- ✁E**タイムスタンプ付き** - 試行時刻を記録
 
-**メタデータ:**
+**メタチE�Eタ:**
 ```json
 {
-  "employee_id": "123456",  // または "unknown"
+  "employee_id": "1234567",  // また�E "unknown"
   "image_type": "login_attempt_thumbnail",
   "processed_at": "2026-01-28T12:00:00",
   "size": "200x200"
@@ -131,8 +131,8 @@ logins/2026-01-28/20260128_120530_unknown_a1b2c3d4.jpg
 ```
 
 **保存タイミング:**
-- 顔認証ログイン試行時（成功・失敗両方）
-- 緊急認証試行時（失敗時のみ）
+- 顔認証ログイン試行時�E��E功�E失敗両方�E�E
+- 緊急認証試行時�E�失敗時のみ�E�E
 
 **ライフサイクルポリシー:**
 ```python
@@ -144,20 +144,20 @@ s3.LifecycleRule(
 )
 ```
 
-**アクセス方法:**
+**アクセス方況E**
 ```bash
 # 特定日のログイン試行画像一覧
 aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/logins/2026-01-28/
 
-# 特定の画像をダウンロード
-aws s3 cp s3://face-auth-images-979431736455-ap-northeast-1/logins/2026-01-28/20260128_120000_123456.jpg ./
+# 特定�E画像をダウンローチE
+aws s3 cp s3://face-auth-images-979431736455-ap-northeast-1/logins/2026-01-28/20260128_120000_1234567.jpg ./
 ```
 
 ---
 
-### 3. temp/ フォルダ（一時ファイル）
+### 3. temp/ フォルダ�E�一時ファイル�E�E
 
-**用途:** 処理中の一時ファイル保存
+**用送E** 処琁E��の一時ファイル保孁E
 
 **保存パス:**
 ```
@@ -165,8 +165,8 @@ temp/{uuid}.jpg
 ```
 
 **特徴:**
-- ⏰ **1日後自動削除** - S3ライフサイクルポリシーで自動削除
-- ✅ **一時的な保存** - 処理完了後は不要
+- ⏰ **1日後�E動削除** - S3ライフサイクルポリシーで自動削除
+- ✁E**一時的な保孁E* - 処琁E��亁E���E不要E
 
 **ライフサイクルポリシー:**
 ```python
@@ -182,7 +182,7 @@ s3.LifecycleRule(
 
 ## 🔍 Amazon Rekognition Collection
 
-### Collection名
+### Collection吁E
 ```
 face-auth-employees
 ```
@@ -192,22 +192,22 @@ face-auth-employees
 aws:rekognition:ap-northeast-1:979431736455:collection/face-auth-employees
 ```
 
-### 保存内容
+### 保存�E容
 
-**顔特徴ベクトル（Face Feature Vector）:**
-- 顔の特徴を数値化したベクトルデータ
-- 画像そのものは保存されない
+**顔特徴ベクトル�E�Eace Feature Vector�E�E**
+- 顔�E特徴を数値化した�EクトルチE�Eタ
+- 画像そのも�Eは保存されなぁE
 - 高速な1:N検索が可能
 
 **Face ID:**
-- Rekognitionが自動生成する一意のID
-- 例: `a1b2c3d4-e5f6-7890-abcd-ef1234567890`
+- Rekognitionが�E動生成する一意�EID
+- 侁E `a1b2c3d4-e5f6-7890-abcd-ef12345677890`
 
-**メタデータ:**
+**メタチE�Eタ:**
 ```json
 {
-  "FaceId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "ExternalImageId": "123456",  // employee_id
+  "FaceId": "a1b2c3d4-e5f6-7890-abcd-ef12345677890",
+  "ExternalImageId": "1234567",  // employee_id
   "Confidence": 99.9,
   "ImageId": "uuid-of-source-image"
 }
@@ -215,24 +215,24 @@ aws:rekognition:ap-northeast-1:979431736455:collection/face-auth-employees
 
 ### 保存タイミング
 
-1. **社員登録時**
+1. **社員登録晁E*
    - 顔画像をRekognitionに送信
    - 顔特徴ベクトルを抽出
    - Collectionに登録
 
-2. **再登録時**
+2. **再登録晁E*
    - 古いFace IDを削除
    - 新しい顔特徴ベクトルを登録
 
-### アクセス方法
+### アクセス方況E
 
 ```bash
-# Collection内の顔一覧
+# Collection冁E�E顔一覧
 aws rekognition list-faces \
   --collection-id face-auth-employees \
   --profile dev
 
-# 特定の顔を検索
+# 特定�E顔を検索
 aws rekognition search-faces-by-image \
   --collection-id face-auth-employees \
   --image-bytes fileb://face.jpg \
@@ -241,61 +241,61 @@ aws rekognition search-faces-by-image \
 
 ---
 
-## 📊 データフロー
+## 📊 チE�Eタフロー
 
 ### 社員登録フロー
 
 ```
-1. フロントエンド
-   ↓ 顔画像（元サイズ）
+1. フロントエンチE
+   ↁE顔画像（�Eサイズ�E�E
 2. Lambda (handle_enrollment)
-   ↓ 画像処理
+   ↁE画像�E琁E
 3. ThumbnailProcessor
-   ├─→ 200x200サムネイル作成
-   ├─→ S3 enroll/{employee_id}/face_thumbnail.jpg に保存
-   └─→ 元画像削除
+   ├─ↁE200x200サムネイル作�E
+   ├─ↁES3 enroll/{employee_id}/face_thumbnail.jpg に保孁E
+   └─ↁE允E��像削除
 4. FaceRecognitionService
-   ├─→ Rekognition IndexFaces API呼び出し
-   └─→ 顔特徴ベクトルをCollectionに保存
+   ├─ↁERekognition IndexFaces API呼び出ぁE
+   └─ↁE顔特徴ベクトルをCollectionに保孁E
 5. DynamoDB
-   └─→ EmployeeFaces テーブルに face_id 保存
+   └─ↁEEmployeeFaces チE�Eブルに face_id 保孁E
 ```
 
 ### 顔認証ログインフロー
 
 ```
-1. フロントエンド
-   ↓ 顔画像（元サイズ）
+1. フロントエンチE
+   ↁE顔画像（�Eサイズ�E�E
 2. Lambda (handle_face_login)
-   ↓ Liveness検出
+   ↁELiveness検�E
 3. FaceRecognitionService
-   ├─→ Rekognition SearchFacesByImage API呼び出し
-   ├─→ Collection内で1:N検索
-   └─→ マッチした face_id を返す
-4. ThumbnailProcessor（成功・失敗両方）
-   ├─→ 200x200サムネイル作成
-   └─→ S3 logins/{date}/{timestamp}_{employee_id}.jpg に保存
+   ├─ↁERekognition SearchFacesByImage API呼び出ぁE
+   ├─ↁECollection冁E��1:N検索
+   └─ↁEマッチしぁEface_id を返す
+4. ThumbnailProcessor�E��E功�E失敗両方�E�E
+   ├─ↁE200x200サムネイル作�E
+   └─ↁES3 logins/{date}/{timestamp}_{employee_id}.jpg に保孁E
 5. DynamoDB
-   └─→ EmployeeFaces テーブルの last_login 更新
+   └─ↁEEmployeeFaces チE�Eブルの last_login 更新
 ```
 
 ---
 
-## 🔒 セキュリティ
+## 🔒 セキュリチE��
 
-### S3バケット
+### S3バケチE��
 
-**暗号化:**
-- ✅ サーバーサイド暗号化（SSE-S3）
-- ✅ AES256アルゴリズム
-- ✅ 転送中はHTTPS
+**暗号匁E**
+- ✁Eサーバ�Eサイド暗号化！ESE-S3�E�E
+- ✁EAES256アルゴリズム
+- ✁E転送中はHTTPS
 
 **アクセス制御:**
-- ✅ パブリックアクセスブロック有効
-- ✅ Lambda実行ロールのみアクセス可能
-- ✅ IAM最小権限の原則
+- ✁EパブリチE��アクセスブロチE��有効
+- ✁ELambda実行ロールのみアクセス可能
+- ✁EIAM最小権限�E原則
 
-**バケットポリシー:**
+**バケチE��ポリシー:**
 ```json
 {
   "Version": "2012-10-17",
@@ -319,8 +319,8 @@ aws rekognition search-faces-by-image \
 ### Rekognition Collection
 
 **アクセス制御:**
-- ✅ Lambda実行ロールのみアクセス可能
-- ✅ IAM最小権限の原則
+- ✁ELambda実行ロールのみアクセス可能
+- ✁EIAM最小権限�E原則
 
 **IAMポリシー:**
 ```json
@@ -343,70 +343,70 @@ aws rekognition search-faces-by-image \
 
 ---
 
-## 📈 容量管理
+## 📈 容量管琁E
 
-### S3ストレージ見積もり
+### S3ストレージ見積もめE
 
-**1社員あたりの容量:**
-- enroll/ フォルダ: 約10-20KB（200x200 JPEG）
-- logins/ フォルダ: 約10-20KB × ログイン回数 × 30日
+**1社員あたり�E容釁E**
+- enroll/ フォルダ: 紁E0-20KB�E�E00x200 JPEG�E�E
+- logins/ フォルダ: 紁E0-20KB ÁEログイン回数 ÁE30日
 
-**例: 1000人の社員、1日1回ログイン:**
+**侁E 1000人の社員、E日1回ログイン:**
 ```
-enroll/: 1000人 × 15KB = 15MB（永久保存）
-logins/: 1000人 × 1回/日 × 30日 × 15KB = 450MB（30日間）
-合計: 約465MB
+enroll/: 1000人 ÁE15KB = 15MB�E�永乁E��存！E
+logins/: 1000人 ÁE1囁E日 ÁE30日 ÁE15KB = 450MB�E�E0日間！E
+合訁E 紁E65MB
 ```
 
-**年間コスト見積もり（東京リージョン）:**
+**年間コスト見積もり（東京リージョン�E�E**
 ```
-S3 Standard: $0.025/GB/月
+S3 Standard: $0.025/GB/朁E
 465MB = 0.465GB
-月額: 0.465GB × $0.025 = $0.012（約1.5円）
-年額: $0.144（約18円）
+月顁E 0.465GB ÁE$0.025 = $0.012�E�紁E.5冁E��E
+年顁E $0.144�E�紁E8冁E��E
 ```
 
-### Rekognition Collection容量
+### Rekognition Collection容釁E
 
-**1社員あたりの容量:**
-- 顔特徴ベクトル: 約1KB
+**1社員あたり�E容釁E**
+- 顔特徴ベクトル: 紁EKB
 
-**例: 1000人の社員:**
+**侁E 1000人の社員:**
 ```
-1000人 × 1KB = 1MB
+1000人 ÁE1KB = 1MB
 ```
 
-**コスト:**
-- Collection保存: 無料
-- IndexFaces: $0.001/画像
+**コスチE**
+- Collection保孁E 無斁E
+- IndexFaces: $0.001/画僁E
 - SearchFacesByImage: $0.001/検索
 
 ---
 
-## 🛠️ 管理コマンド
+## 🛠�E�E管琁E��マンチE
 
-### S3バケット内容確認
+### S3バケチE��冁E��確誁E
 
 ```bash
 # enroll/ フォルダ一覧
 aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/enroll/ --recursive --profile dev
 
-# logins/ フォルダ一覧（特定日）
+# logins/ フォルダ一覧�E�特定日�E�E
 aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/logins/2026-01-28/ --profile dev
 
-# バケット全体のサイズ確認
+# バケチE��全体�Eサイズ確誁E
 aws s3 ls s3://face-auth-images-979431736455-ap-northeast-1/ --recursive --summarize --profile dev
 ```
 
-### Rekognition Collection管理
+### Rekognition Collection管琁E
 
 ```bash
-# Collection情報確認
+# Collection惁E��確誁E
 aws rekognition describe-collection \
   --collection-id face-auth-employees \
   --profile dev
 
-# 登録されている顔の数確認
+# 登録されてぁE��顔�E数確誁E
 aws rekognition list-faces \
   --collection-id face-auth-employees \
   --profile dev \
@@ -419,13 +419,13 @@ aws rekognition delete-faces \
   --profile dev
 ```
 
-### DynamoDB確認
+### DynamoDB確誁E
 
 ```bash
-# 社員の face_id 確認
+# 社員の face_id 確誁E
 aws dynamodb get-item \
   --table-name FaceAuth-EmployeeFaces \
-  --key '{"employee_id": {"S": "123456"}}' \
+  --key '{"employee_id": {"S": "1234567"}}' \
   --profile dev
 
 # 全社員一覧
@@ -436,32 +436,32 @@ aws dynamodb scan \
 
 ---
 
-## 🔄 バックアップとリストア
+## 🔄 バックアチE�Eとリストア
 
-### S3バケットのバックアップ
+### S3バケチE��のバックアチE�E
 
-**バージョニング:**
-- フロントエンドバケット: 有効
-- 画像バケット: 無効（容量削減のため）
+**バ�Eジョニング:**
+- フロントエンドバケチE��: 有効
+- 画像バケチE��: 無効�E�容量削減�Eため�E�E
 
-**推奨バックアップ方法:**
+**推奨バックアチE�E方況E**
 ```bash
-# enroll/ フォルダのバックアップ（永久保存データ）
+# enroll/ フォルダのバックアチE�E�E�永乁E��存データ�E�E
 aws s3 sync s3://face-auth-images-979431736455-ap-northeast-1/enroll/ \
   ./backup/enroll/ \
   --profile dev
 ```
 
-### Rekognition Collectionのバックアップ
+### Rekognition CollectionのバックアチE�E
 
-**注意:** Rekognition Collectionは直接バックアップできません。
+**注愁E** Rekognition Collectionは直接バックアチE�Eできません、E
 
-**推奨方法:**
-1. DynamoDBの`EmployeeFaces`テーブルをバックアップ
-2. 必要に応じて、enroll/ フォルダの画像から再登録
+**推奨方況E**
+1. DynamoDBの`EmployeeFaces`チE�EブルをバチE��アチE�E
+2. 忁E��に応じて、enroll/ フォルダの画像から�E登録
 
 ```bash
-# DynamoDBバックアップ
+# DynamoDBバックアチE�E
 aws dynamodb create-backup \
   --table-name FaceAuth-EmployeeFaces \
   --backup-name FaceAuth-EmployeeFaces-Backup-20260128 \
@@ -470,28 +470,28 @@ aws dynamodb create-backup \
 
 ---
 
-## 📝 まとめ
+## 📝 まとめE
 
-### 顔写真の蓄積場所
+### 顔�E真�E蓁E��場所
 
-| 場所 | 用途 | 保存期間 | 容量 |
+| 場所 | 用送E| 保存期閁E| 容釁E|
 |------|------|---------|------|
-| **S3: enroll/** | 社員登録時の顔写真 | 永久 | 10-20KB/人 |
-| **S3: logins/** | ログイン試行時の顔写真 | 30日 | 10-20KB/試行 |
-| **S3: temp/** | 一時処理ファイル | 1日 | 可変 |
-| **Rekognition Collection** | 顔特徴ベクトル | 永久 | 1KB/人 |
-| **DynamoDB** | face_id、メタデータ | 永久 | 1KB/人 |
+| **S3: enroll/** | 社員登録時�E顔�E省E| 永乁E| 10-20KB/人 |
+| **S3: logins/** | ログイン試行時の顔�E省E| 30日 | 10-20KB/試衁E|
+| **S3: temp/** | 一時�E琁E��ァイル | 1日 | 可夁E|
+| **Rekognition Collection** | 顔特徴ベクトル | 永乁E| 1KB/人 |
+| **DynamoDB** | face_id、メタチE�Eタ | 永乁E| 1KB/人 |
 
-### 重要ポイント
+### 重要�EインチE
 
-1. ✅ **画像はS3に保存** - サムネイル（200x200）のみ
-2. ✅ **顔特徴はRekognitionに保存** - 高速検索用
-3. ✅ **メタデータはDynamoDBに保存** - face_id、employee_id紐付け
-4. ✅ **自動削除** - logins/は30日、temp/は1日で自動削除
-5. ✅ **暗号化** - すべてのデータが暗号化されて保存
+1. ✁E**画像�ES3に保孁E* - サムネイル�E�E00x200�E��Eみ
+2. ✁E**顔特徴はRekognitionに保孁E* - 高速検索用
+3. ✁E**メタチE�EタはDynamoDBに保孁E* - face_id、employee_id紐付け
+4. ✁E**自動削除** - logins/は30日、temp/は1日で自動削除
+5. ✁E**暗号匁E* - すべてのチE�Eタが暗号化されて保孁E
 
 ---
 
-**作成日:** 2026年1月28日  
-**バージョン:** 1.0
+**作�E日:** 2026年1朁E8日  
+**バ�Eジョン:** 1.0
 

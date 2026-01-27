@@ -23,7 +23,7 @@ class EmployeeInfo:
     Employee information extracted from ID card OCR processing
     
     Attributes:
-        employee_id: 6-digit employee identifier
+        employee_id: 7-digit employee identifier
         name: Employee full name (Korean characters)
         department: Employee department/division
         card_type: Type of ID card used
@@ -42,8 +42,8 @@ class EmployeeInfo:
         Returns:
             bool: True if all validation checks pass
         """
-        # Employee ID must be exactly 6 digits
-        if not (len(self.employee_id) == 6 and self.employee_id.isdigit()):
+        # Employee ID must be exactly 7 digits
+        if not (len(self.employee_id) == 7 and self.employee_id.isdigit()):
             return False
             
         # Name must be at least 2 Korean characters

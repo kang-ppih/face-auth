@@ -64,24 +64,24 @@ class MockADConnector:
     # Mock employee database (for demonstration)
     # In real scenario, this would be replaced with actual AD
     MOCK_EMPLOYEES = {
-        "123456": {
-            "employee_id": "123456",
+        "1234567": {
+            "employee_id": "1234567",
             "name": "山田太郎",
             "department": "開発部",
             "email": "yamada.taro@company.com",
             "title": "シニアエンジニア",
             "user_account_control": 512  # Normal account (enabled)
         },
-        "789012": {
-            "employee_id": "789012",
+        "7890123": {
+            "employee_id": "7890123",
             "name": "佐藤花子",
             "department": "営業部",
             "email": "sato.hanako@company.com",
             "title": "営業マネージャー",
             "user_account_control": 512
         },
-        "345678": {
-            "employee_id": "345678",
+        "3456789": {
+            "employee_id": "3456789",
             "name": "鈴木一郎",
             "department": "人事部",
             "email": "suzuki.ichiro@company.com",
@@ -89,8 +89,8 @@ class MockADConnector:
             "user_account_control": 512
         },
         # Disabled account for testing
-        "999999": {
-            "employee_id": "999999",
+        "9999999": {
+            "employee_id": "9999999",
             "name": "無効アカウント",
             "department": "テスト部",
             "email": "disabled@company.com",
@@ -158,14 +158,14 @@ class MockADConnector:
         
         logger.info(f"[MOCK] Verifying employee: {employee_id}")
         
-        # Validate employee_id format (6 digits)
-        if not employee_id or len(employee_id) != 6 or not employee_id.isdigit():
+        # Validate employee_id format (7 digits)
+        if not employee_id or len(employee_id) != 7 or not employee_id.isdigit():
             elapsed_time = time.time() - start_time
             logger.warning(f"[MOCK] Invalid employee_id format: {employee_id}")
             return ADVerificationResult(
                 success=False,
                 reason=ErrorCodes.REGISTRATION_INFO_MISMATCH,
-                error="Invalid employee_id format (must be 6 digits)",
+                error="Invalid employee_id format (must be 7 digits)",
                 elapsed_time=elapsed_time
             )
         
@@ -173,7 +173,7 @@ class MockADConnector:
         if employee_id in self.MOCK_EMPLOYEES:
             ad_data = self.MOCK_EMPLOYEES[employee_id].copy()
         else:
-            # For any other 6-digit employee_id, create mock data
+            # For any other 7-digit employee_id, create mock data
             ad_data = {
                 'employee_id': employee_id,
                 'name': extracted_info.name or f"社員{employee_id}",
@@ -237,7 +237,7 @@ class MockADConnector:
         logger.info(f"[MOCK] Authenticating employee: {employee_id}")
         
         # Validate employee_id format
-        if not employee_id or len(employee_id) != 6 or not employee_id.isdigit():
+        if not employee_id or len(employee_id) != 7 or not employee_id.isdigit():
             elapsed_time = time.time() - start_time
             logger.warning(f"[MOCK] Invalid employee_id format: {employee_id}")
             return ADVerificationResult(
