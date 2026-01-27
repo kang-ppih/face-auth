@@ -1,143 +1,143 @@
-# Face-Auth IdP System - 배포 가이드
+# Face-Auth IdP System - デプロイメントガイド
 
-## 📋 구현 완료 사항
+## 📋 実装完了事項
 
-### ✅ AWS 인프라 및 기본 설정 구축 (Task 1)
+### ✅ AWSインフラおよび基本設定構築 (Task 1)
 
-다음 AWS 인프라 구성 요소가 AWS CDK를 사용하여 구현되었습니다:
+以下のAWSインフラコンポーネントがAWS CDKを使用して実装されました:
 
-#### 🌐 VPC 및 네트워킹 (요구사항 4.1, 4.5)
-- **VPC**: 10.0.0.0/16 CIDR 블록
-- **서브넷**: 
-  - Public 서브넷 (24비트 마스크)
-  - Private 서브넷 with NAT Gateway (24비트 마스크)
-  - Isolated 서브넷 (24비트 마스크)
-- **보안 그룹**:
-  - Lambda 함수용 보안 그룹
-  - Active Directory 연결용 보안 그룹 (LDAPS 636, LDAP 389 포트)
-- **VPC 엔드포인트**: S3 및 DynamoDB용 게이트웨이 엔드포인트
-- **Direct Connect 준비**: Customer Gateway 구성 (물리적 연결은 별도 설정 필요)
+#### 🌐 VPCおよびネットワーキング (要件 4.1, 4.5)
+- **VPC**: 10.0.0.0/16 CIDRブロック
+- **サブネット**: 
+  - Publicサブネット (24ビットマスク)
+  - Private サブネット with NAT Gateway (24ビットマスク)
+  - Isolated サブネット (24ビットマスク)
+- **セキュリティグループ**:
+  - Lambda関数用セキュリティグループ
+  - Active Directory接続用セキュリティグループ (LDAPS 636, LDAP 389ポート)
+- **VPCエンドポイント**: S3およびDynamoDB用ゲートウェイエンドポイント
+- **Direct Connect準備**: Customer Gateway構成 (物理接続は別途設定が必要)
 
-#### 🪣 S3 버킷 (요구사항 4.4, 5.2, 5.3, 5.4, 5.6)
-- **버킷 이름**: `face-auth-images-{account}-{region}`
-- **암호화**: S3 관리형 암호화 적용
-- **퍼블릭 액세스**: 완전 차단
-- **Lifecycle 정책**:
-  - `logins/` 폴더: 30일 후 자동 삭제
-  - `temp/` 폴더: 1일 후 자동 삭제
-  - `enroll/` 폴더: 영구 보관
-- **CORS 구성**: 프론트엔드 통합 지원
+#### 🪣 S3バケット (要件 4.4, 5.2, 5.3, 5.4, 5.6)
+- **バケット名**: `face-auth-images-{account}-{region}`
+- **暗号化**: S3管理型暗号化適用
+- **パブリックアクセス**: 完全ブロック
+- **Lifecycleポリシー**:
+  - `logins/` フォルダ: 30日後自動削除
+  - `temp/` フォルダ: 1日後自動削除
+  - `enroll/` フォルダ: 永久保管
+- **CORS構成**: フロントエンド統合サポート
 
-#### 🗄️ DynamoDB 테이블 (요구사항 5.5, 7.4)
-1. **CardTemplates 테이블**:
-   - 파티션 키: `pattern_id` (String)
-   - GSI: `CardTypeIndex` (card_type 기준)
-   - 암호화 및 Point-in-Time Recovery 활성화
+#### 🗄️ DynamoDBテーブル (要件 5.5, 7.4)
+1. **CardTemplatesテーブル**:
+   - パーティションキー: `pattern_id` (String)
+   - GSI: `CardTypeIndex` (card_type基準)
+   - 暗号化およびPoint-in-Time Recovery有効化
 
-2. **EmployeeFaces 테이블**:
-   - 파티션 키: `employee_id` (String)
-   - GSI: `FaceIdIndex` (face_id 기준)
-   - 암호화 및 Point-in-Time Recovery 활성화
+2. **EmployeeFacesテーブル**:
+   - パーティションキー: `employee_id` (String)
+   - GSI: `FaceIdIndex` (face_id基準)
+   - 暗号化およびPoint-in-Time Recovery有効化
 
-3. **AuthSessions 테이블**:
-   - 파티션 키: `session_id` (String)
-   - TTL: `expires_at` 속성으로 자동 세션 정리
+3. **AuthSessionsテーブル**:
+   - パーティションキー: `session_id` (String)
+   - TTL: `expires_at` 属性で自動セッションクリーンアップ
 
-#### ⚡ Lambda 함수 (요구사항 4.3, 4.4)
-모든 Lambda 함수는 다음 구성으로 생성:
-- **런타임**: Python 3.9
-- **타임아웃**: 15초 (요구사항 준수)
-- **메모리**: 512MB
-- **VPC**: Private 서브넷에서 실행
-- **보안 그룹**: Lambda 및 AD 연결 보안 그룹 적용
+#### ⚡ Lambda関数 (要件 4.3, 4.4)
+すべてのLambda関数は以下の構成で作成:
+- **ランタイム**: Python 3.9
+- **タイムアウト**: 15秒 (要件準拠)
+- **メモリ**: 512MB
+- **VPC**: Privateサブネットで実行
+- **セキュリティグループ**: LambdaおよびAD接続セキュリティグループ適用
 
-생성된 함수들:
-1. `FaceAuth-Enrollment`: 직원 등록 처리
-2. `FaceAuth-FaceLogin`: 얼굴 로그인 처리
-3. `FaceAuth-EmergencyAuth`: 비상 인증 처리
-4. `FaceAuth-ReEnrollment`: 재등록 처리
-5. `FaceAuth-Status`: 인증 상태 확인
+作成された関数:
+1. `FaceAuth-Enrollment`: 従業員登録処理
+2. `FaceAuth-FaceLogin`: 顔ログイン処理
+3. `FaceAuth-EmergencyAuth`: 緊急認証処理
+4. `FaceAuth-ReEnrollment`: 再登録処理
+5. `FaceAuth-Status`: 認証ステータス確認
 
-#### 🔐 IAM 역할 및 정책 (요구사항 4.7, 5.6, 5.7)
-- **Lambda 실행 역할**: VPC 액세스 권한 포함
-- **커스텀 정책**:
-  - S3 버킷 읽기/쓰기 권한
-  - DynamoDB 테이블 CRUD 권한
-  - Amazon Rekognition 전체 권한
-  - Amazon Textract 문서 분석 권한
-  - Cognito 사용자 관리 권한
-  - CloudWatch 로깅 권한
+#### 🔐 IAMロールおよびポリシー (要件 4.7, 5.6, 5.7)
+- **Lambda実行ロール**: VPCアクセス権限を含む
+- **カスタムポリシー**:
+  - S3バケット読み取り/書き込み権限
+  - DynamoDBテーブルCRUD権限
+  - Amazon Rekognition全権限
+  - Amazon Textractドキュメント分析権限
+  - Cognitoユーザー管理権限
+  - CloudWatchロギング権限
 
-#### 🚪 API Gateway (요구사항 4.6, 4.7)
+#### 🚪 API Gateway (要件 4.6, 4.7)
 - **REST API**: `FaceAuth-API`
-- **엔드포인트**:
-  - `POST /auth/enroll`: 직원 등록
-  - `POST /auth/login`: 얼굴 로그인
-  - `POST /auth/emergency`: 비상 인증
-  - `POST /auth/re-enroll`: 재등록
-  - `GET /auth/status`: 상태 확인
-- **보안**: API 키, 사용량 계획, 속도 제한 구성
-- **CORS**: 프론트엔드 통합 지원
+- **エンドポイント**:
+  - `POST /auth/enroll`: 従業員登録
+  - `POST /auth/login`: 顔ログイン
+  - `POST /auth/emergency`: 緊急認証
+  - `POST /auth/re-enroll`: 再登録
+  - `GET /auth/status`: ステータス確認
+- **セキュリティ**: APIキー、使用量プラン、レート制限構成
+- **CORS**: フロントエンド統合サポート
 
-#### 👤 AWS Cognito (요구사항 2.3, 3.5)
-- **사용자 풀**: `FaceAuth-UserPool`
-- **비밀번호 정책**: 12자 이상, 대소문자/숫자/특수문자 포함
-- **토큰 유효기간**:
-  - Access Token: 1시간
-  - ID Token: 1시간
-  - Refresh Token: 30일
-- **클라이언트**: 프론트엔드용 퍼블릭 클라이언트
+#### 👤 AWS Cognito (要件 2.3, 3.5)
+- **ユーザープール**: `FaceAuth-UserPool`
+- **パスワードポリシー**: 12文字以上、大小文字/数字/特殊文字を含む
+- **トークン有効期間**:
+  - Access Token: 1時間
+  - ID Token: 1時間
+  - Refresh Token: 30日
+- **クライアント**: フロントエンド用パブリッククライアント
 
-#### 📊 CloudWatch 로깅 (요구사항 6.7, 8.7)
-- **Lambda 로그 그룹**: 각 함수별 30일 보관
-- **API Gateway 액세스 로그**: 30일 보관
-- **모니터링**: 메트릭 및 알람 준비
+#### 📊 CloudWatchロギング (要件 6.7, 8.7)
+- **Lambdaログ グループ**: 各関数ごとに30日保管
+- **API Gatewayアクセスログ**: 30日保管
+- **モニタリング**: メトリクスおよびアラーム準備
 
-## 🚀 배포 방법
+## 🚀 デプロイ方法
 
-### 1. 사전 요구사항
+### 1. 前提条件
 ```bash
-# Node.js 및 AWS CDK 설치
+# Node.jsおよびAWS CDKインストール
 npm install -g aws-cdk
 
-# AWS CLI 구성
+# AWS CLI構成
 aws configure
 
-# Python 3.9+ 설치 확인
+# Python 3.9+インストール確認
 python --version
 ```
 
-### 2. 배포 실행
+### 2. デプロイ実行
 ```powershell
-# PowerShell에서 실행
+# PowerShellで実行
 .\deploy.ps1
 ```
 
-또는 수동 배포:
+または手動デプロイ:
 ```bash
-# 가상환경 생성 및 활성화
+# 仮想環境作成および有効化
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 
-# 의존성 설치
+# 依存関係インストール
 pip install -r requirements.txt
 
-# CDK 부트스트랩 (계정당 한 번만)
+# CDKブートストラップ (アカウントごとに1回のみ)
 cdk bootstrap
 
-# 스택 배포
+# スタックデプロイ
 cdk deploy
 ```
 
-### 3. 배포 후 설정
+### 3. デプロイ後設定
 
-#### Rekognition 컬렉션 생성
+#### Rekognitionコレクション作成
 ```bash
 aws rekognition create-collection --collection-id face-auth-employees
 ```
 
-#### 카드 템플릿 추가
-DynamoDB `FaceAuth-CardTemplates` 테이블에 사원증 인식 패턴 추가:
+#### カードテンプレート追加
+DynamoDB `FaceAuth-CardTemplates` テーブルに社員証認識パターンを追加:
 ```json
 {
   "pattern_id": "company_standard_v1",
@@ -146,14 +146,14 @@ DynamoDB `FaceAuth-CardTemplates` 테이블에 사원증 인식 패턴 추가:
   "fields": [
     {
       "field_name": "employee_id",
-      "query_phrase": "사번은 무엇입니까?",
+      "query_phrase": "社員番号は何ですか？",
       "expected_format": "\\d{6}",
       "required": true
     },
     {
       "field_name": "employee_name",
-      "query_phrase": "성명은 무엇입니까?",
-      "expected_format": "[가-힣]{2,4}",
+      "query_phrase": "氏名は何ですか？",
+      "expected_format": "[\\u4e00-\\u9faf]{2,4}",
       "required": true
     }
   ],
@@ -161,25 +161,25 @@ DynamoDB `FaceAuth-CardTemplates` 테이블에 사원증 인식 패턴 추가:
 }
 ```
 
-#### Direct Connect 설정
-물리적 Direct Connect 연결은 AWS 콘솔 또는 네트워크 팀과 협력하여 별도 구성 필요.
+#### Direct Connect設定
+物理的なDirect Connect接続はAWSコンソールまたはネットワークチームと協力して別途構成が必要です。
 
-## 📁 프로젝트 구조
+## 📁 プロジェクト構造
 
 ```
 face-auth-idp/
-├── app.py                    # CDK 앱 진입점
-├── cdk.json                  # CDK 구성
-├── requirements.txt          # Python 의존성
-├── config.py                 # 시스템 구성
-├── deploy.ps1               # PowerShell 배포 스크립트
-├── validate_stack.py        # 스택 검증 스크립트
-├── README.md                # 프로젝트 문서
-├── DEPLOYMENT_GUIDE.md      # 이 파일
+├── app.py                    # CDKアプリエントリーポイント
+├── cdk.json                  # CDK構成
+├── requirements.txt          # Python依存関係
+├── config.py                 # システム構成
+├── deploy.ps1               # PowerShellデプロイスクリプト
+├── validate_stack.py        # スタック検証スクリプト
+├── README.md                # プロジェクトドキュメント
+├── DEPLOYMENT_GUIDE.md      # このファイル
 ├── infrastructure/
 │   ├── __init__.py
-│   └── face_auth_stack.py   # 메인 CDK 스택
-├── lambda/                  # Lambda 함수들
+│   └── face_auth_stack.py   # メインCDKスタック
+├── lambda/                  # Lambda関数
 │   ├── enrollment/
 │   ├── face_login/
 │   ├── emergency_auth/
@@ -190,48 +190,48 @@ face-auth-idp/
     └── test_infrastructure.py
 ```
 
-## 🔧 구성 관리
+## 🔧 構成管理
 
-주요 설정은 `config.py`에서 관리:
-- Rekognition 신뢰도 임계값 (90%)
-- 타임아웃 설정 (AD: 10초, Lambda: 15초)
-- S3 폴더 구조
-- 오류 메시지 매핑
-- Active Directory 연결 정보
+主要設定は`config.py`で管理:
+- Rekognition信頼度閾値 (90%)
+- タイムアウト設定 (AD: 10秒, Lambda: 15秒)
+- S3フォルダ構造
+- エラーメッセージマッピング
+- Active Directory接続情報
 
-## ✅ 요구사항 충족 확인
+## ✅ 要件充足確認
 
-### 요구사항 4.1: Direct Connect 사용
-- ✅ Customer Gateway 구성 완료
-- ✅ AD 연결용 보안 그룹 (LDAPS/LDAP 포트) 구성
+### 要件 4.1: Direct Connect使用
+- ✅ Customer Gateway構成完了
+- ✅ AD接続用セキュリティグループ (LDAPS/LDAPポート) 構成
 
-### 요구사항 4.4: AWS CDK 사용
-- ✅ Python CDK로 전체 인프라 구현
-- ✅ 코드형 인프라 (Infrastructure as Code) 적용
+### 要件 4.4: AWS CDK使用
+- ✅ Python CDKで全インフラ実装
+- ✅ Infrastructure as Code適用
 
-### 요구사항 4.5: VPC 및 보안 그룹
-- ✅ VPC 네트워크 격리 구현
-- ✅ 적절한 보안 그룹 구성
+### 要件 4.5: VPCおよびセキュリティグループ
+- ✅ VPCネットワーク分離実装
+- ✅ 適切なセキュリティグループ構成
 
-### 요구사항 4.7: IAM 역할 및 정책
-- ✅ 최소 권한 원칙 적용
-- ✅ 서비스별 적절한 권한 부여
+### 要件 4.7: IAMロールおよびポリシー
+- ✅ 最小権限の原則適用
+- ✅ サービスごとに適切な権限付与
 
-## 🎯 다음 단계
+## 🎯 次のステップ
 
-1. **Lambda 함수 구현**: 각 인증 흐름의 비즈니스 로직 구현
-2. **테스트 작성**: 단위 테스트 및 속성 기반 테스트 구현
-3. **프론트엔드 개발**: React + AWS Amplify UI 구현
-4. **통합 테스트**: 전체 시스템 통합 테스트
-5. **보안 검토**: 프로덕션 배포 전 보안 감사
+1. **Lambda関数実装**: 各認証フローのビジネスロジック実装
+2. **テスト作成**: 単体テストおよびプロパティベーステスト実装
+3. **フロントエンド開発**: React + AWS Amplify UI実装
+4. **統合テスト**: システム全体の統合テスト
+5. **セキュリティレビュー**: 本番デプロイ前のセキュリティ監査
 
-## 🚨 주의사항
+## 🚨 注意事項
 
-- Direct Connect 물리적 연결은 별도 설정 필요
-- 프로덕션 환경에서는 CORS 설정을 특정 도메인으로 제한
-- API 키 및 시크릿은 AWS Secrets Manager 사용 권장
-- 모니터링 및 알람 설정 필요
+- Direct Connect物理接続は別途設定が必要
+- 本番環境ではCORS設定を特定ドメインに制限
+- APIキーおよびシークレットはAWS Secrets Manager使用を推奨
+- モニタリングおよびアラーム設定が必要
 
 ---
 
-**Task 1 완료**: AWS 인프라 및 기본 설정 구축이 성공적으로 완료되었습니다. 모든 요구사항 (4.1, 4.4, 4.5, 4.7)이 충족되었으며, 다음 작업 단계로 진행할 준비가 되었습니다.
+**Task 1完了**: AWSインフラおよび基本設定構築が正常に完了しました。すべての要件 (4.1, 4.4, 4.5, 4.7)が満たされ、次の作業ステップに進む準備が整いました。
