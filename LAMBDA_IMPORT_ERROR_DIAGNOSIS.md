@@ -144,7 +144,7 @@ Response Status: 400
 Response Body:
 {
   "error": "INVALID_REQUEST",
-  "message": "사원증과 얼굴 이미지가 필요합니다",
+  "message": "社員証と顔画像が必要です",
   "request_id": "59d3708d-1694-430b-8e1b-37e2a5780e22",
   "timestamp": "2026-01-27T23:06:15.299198"
 }

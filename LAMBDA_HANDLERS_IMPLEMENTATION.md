@@ -195,9 +195,9 @@ Created comprehensive test suite (`tests/test_lambda_handlers.py`):
 ```json
 {
   "success": true,
-  "message": "등록이 완료되었습니다",
+  "message": "登録が完了しました",
   "employee_id": "123456",
-  "employee_name": "홍길동",
+  "employee_name": "山田太郎",
   "face_id": "rekognition-face-id",
   "request_id": "request-id",
   "processing_time": 3.45
@@ -215,7 +215,7 @@ Created comprehensive test suite (`tests/test_lambda_handlers.py`):
 ```json
 {
   "success": true,
-  "message": "로그인 성공",
+  "message": "ログイン成功",
   "employee_id": "123456",
   "session_id": "session-uuid",
   "access_token": "cognito-jwt-token",
@@ -238,9 +238,9 @@ Created comprehensive test suite (`tests/test_lambda_handlers.py`):
 ```json
 {
   "success": true,
-  "message": "비상 인증 성공",
+  "message": "緊急認証成功",
   "employee_id": "123456",
-  "employee_name": "홍길동",
+  "employee_name": "山田太郎",
   "session_id": "session-uuid",
   "access_token": "cognito-jwt-token",
   "expires_at": "2024-01-15T17:30:00Z",
@@ -336,11 +336,11 @@ SESSION_TIMEOUT_HOURS=8  # Default: 8 hours
 7. ⏭️ Performance optimization and monitoring
 
 ### Property-Based Tests to Write
-- Task 8.2: 등록 흐름 통합 속성 테스트
-- Task 8.4: 인증 세션 생성 속성 테스트
-- Task 8.5: 실패한 로그인 시도 저장 속성 테스트
-- Task 8.7: 비상 로그인 옵션 제공 속성 테스트
-- Task 8.8: 속도 제한 구현 속성 테스트
+- Task 8.2: 登録フロー統合プロパティテスト
+- Task 8.4: 認証セッション作成プロパティテスト
+- Task 8.5: 失敗したログイン試行保存プロパティテスト
+- Task 8.7: 緊急ログインオプション提供プロパティテスト
+- Task 8.8: レート制限実装プロパティテスト
 
 ---
 

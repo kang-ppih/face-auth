@@ -5,7 +5,7 @@
 This document describes the complete implementation of AuthenticationSession management in the Face-Auth IdP system. The session management system integrates AWS Cognito for token generation with DynamoDB for session persistence and automatic cleanup using TTL (Time To Live).
 
 **Requirements Addressed:** 2.5, 10.7  
-**Task:** 10.2 AuthenticationSession DynamoDB 관리 구현
+**Task:** 10.2 AuthenticationSession DynamoDB管理実装
 
 ## Architecture
 

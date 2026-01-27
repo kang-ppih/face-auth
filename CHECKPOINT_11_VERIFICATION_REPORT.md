@@ -1,7 +1,7 @@
 # Task 11: Backend System Integration Verification Report
 
 **Date:** 2024
-**Task:** 체크포인트 - 백엔드 시스템 통합 검증
+**Task:** チェックポイント - バックエンドシステム統合検証
 
 ## Executive Summary
 
@@ -97,8 +97,8 @@ This checkpoint verifies the following as specified in the task:
 - ✅ Template matching
 
 **Error Handler (30 tests):**
-- ✅ Specific error messages (사원증 규격 불일치, 등록 정보 불일치, 계정 비활성화)
-- ✅ Generic error messages (밝은 곳에서 다시 시도해주세요)
+- ✅ Specific error messages (社員証規格不一致、登録情報不一致、アカウント無効化)
+- ✅ Generic error messages (明るい場所で再度お試しください)
 - ✅ System reason / user message separation
 - ✅ Context sanitization
 - ✅ Retry logic
@@ -202,16 +202,16 @@ This checkpoint verifies the following as specified in the task:
 - Returned when card template doesn't match
 - Retry allowed: YES
 
-✅ **등록 정보 불일치** (REGISTRATION_INFO_MISMATCH)
+✅ **登録情報不一致** (REGISTRATION_INFO_MISMATCH)
 - Returned when employee data doesn't match AD
 - Retry allowed: YES
 
-✅ **계정 비활성화** (ACCOUNT_DISABLED)
+✅ **アカウント無効化** (ACCOUNT_DISABLED)
 - Returned when AD account is disabled
 - Retry allowed: NO
 
 ### Generic Error Messages (Technical Issues)
-✅ **밝은 곳에서 다시 시도해주세요**
+✅ **明るい場所で再度お試しください**
 - Used for: LIVENESS_FAILED, FACE_NOT_FOUND, AD_CONNECTION_ERROR, TIMEOUT_ERROR
 - Provides user-friendly message for technical issues
 - System reason logged separately for debugging
@@ -352,4 +352,4 @@ python -m pytest tests/ --ignore=tests/test_ad_connector.py --ignore=tests/test_
 
 **Verified by:** Kiro AI Agent
 **Date:** 2024
-**Task:** 11. 체크포인트 - 백엔드 시스템 통합 검증
+**Task:** 11. チェックポイント - バックエンドシステム統合検証

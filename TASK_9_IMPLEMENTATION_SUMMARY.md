@@ -133,9 +133,9 @@ Successfully completed task 9 from the face-auth spec, implementing the re-enrol
 ```json
 {
   "success": true,
-  "message": "재등록이 완료되었습니다",
+  "message": "再登録が完了しました",
   "employee_id": "123456",
-  "employee_name": "홍길동",
+  "employee_name": "山田太郎",
   "old_face_id": "old-face-id",
   "new_face_id": "new-face-id",
   "re_enrollment_count": 1,
@@ -148,7 +148,7 @@ Successfully completed task 9 from the face-auth spec, implementing the re-enrol
 ```json
 {
   "error": "INVALID_REQUEST",
-  "message": "등록된 직원 정보를 찾을 수 없습니다",
+  "message": "登録された社員情報が見つかりません",
   "request_id": "request-id",
   "timestamp": "2024-01-15T10:30:00Z"
 }
@@ -220,7 +220,7 @@ Both handlers implement comprehensive error handling:
 {
   "event": "RE_ENROLLMENT",
   "employee_id": "123456",
-  "employee_name": "홍길동",
+  "employee_name": "山田太郎",
   "old_face_id": "old-face-id",
   "new_face_id": "new-face-id",
   "re_enrollment_count": 1,

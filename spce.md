@@ -1,20 +1,20 @@
-바이브 코딩 AI(Vibe Coding AI)가 시스템 전체를 한눈에 파악하고 즉시 코딩을 시작할 수 있도록 최적화된 마크다운(Markdown) 작업 지시서입니다.
+Vibe Coding AIがシステム全体を一目で把握し、すぐにコーディングを開始できるように最適化されたMarkdown作業指示書です。
 
-이 내용을 복사하여 .md 파일로 저장하거나 AI 채팅창에 그대로 붙여넣으세요.
+この内容をコピーして.mdファイルとして保存するか、AIチャットウィンドウにそのまま貼り付けてください。
 
 📄 Project Specification: Face-Auth IdP System (AWS \& Python)
 
-1\. 개요 (Overview)
+1\. 概要 (Overview)
 
-&nbsp;\* 목표: 사원증 기반의 신뢰 체인을 바탕으로 한 얼굴 인식(1:N) Passwordless 인증 시스템 구축.
+&nbsp;\* 目標: 社員証ベースの信頼チェーンに基づく顔認識(1:N) Passwordless認証システム構築。
 
-&nbsp;\* 핵심 흐름: 1. 최초 등록/재등록: 사원증 OCR 인증 → 얼굴 등록.
+&nbsp;\* 核心フロー: 1. 初回登録/再登録: 社員証OCR認証 → 顔登録。
 
-&nbsp;  2. 일반 로그인: 얼굴 인식(1:N) → 성공 시 로그인.
+&nbsp;  2. 一般ログイン: 顔認識(1:N) → 成功時ログイン。
 
-&nbsp;  3. 비상 로그인: 얼굴 인식 실패 시 사원증 OCR + AD 비밀번호 인증.
+&nbsp;  3. 緊急ログイン: 顔認識失敗時 社員証OCR + ADパスワード認証。
 
-2\. 기술 스택 (Tech Stack)
+2\. 技術スタック (Tech Stack)
 
 &nbsp;\* Infrastructure: AWS CDK (Python)
 
@@ -24,33 +24,33 @@
 
 &nbsp;\* Services: Cognito, Rekognition, Textract, DynamoDB, S3, Direct Connect
 
-3\. 핵심 요구사항 (Key Requirements)
+3\. 核心要求事項 (Key Requirements)
 
-A. 네트워크 및 보안
+A. ネットワークおよびセキュリティ
 
-&nbsp;\* 연결: AWS Direct Connect를 통해 온프레미스 AD와 연결.
+&nbsp;\* 連結: AWS Direct Connectを通じてオンプレミスADと接続。
 
-&nbsp;\* 타임아웃: AD 연결 및 인증 타임아웃은 10초로 제한 (전체 Lambda 타임아웃 15초).
+&nbsp;\* タイムアウト: AD接続および認証タイムアウトは10秒に制限（全体Lambdaタイムアウト15秒）。
 
-&nbsp;\* Liveness: 모든 얼굴 캡처 시 Amazon Rekognition Liveness 적용 (Confidence > 90%).
+&nbsp;\* Liveness: すべての顔キャプチャ時にAmazon Rekognition Livenessを適用（Confidence > 90%）。
 
-B. 데이터 관리 정책 (S3 \& DynamoDB)
+B. データ管理ポリシー (S3 \& DynamoDB)
 
-&nbsp;\* 이미지 보관:
+&nbsp;\* 画像保管:
 
-&nbsp;  \* 등록/재등록 이미지: 원본 삭제 후 200x200 섬네일만 생성하여 영구 보관.
+&nbsp;  \* 登録/再登録画像: 原本削除後200x200サムネイルのみ生成して永久保管。
 
-&nbsp;  \* 로그인 시도 이미지: 섬네일 변환 후 logins/ 폴더에 저장, 30일 후 자동 삭제 (S3 Lifecycle).
+&nbsp;  \* ログイン試行画像: サムネイル変換後logins/フォルダに保存、30日後自動削除（S3 Lifecycle）。
 
-&nbsp;\* 사원증 관리: DynamoDB에 다중 사원증 패턴(로고 위치, Textract Query 문구 등)을 관리하여 확장성 확보.
+&nbsp;\* 社員証管理: DynamoDBに複数社員証パターン（ロゴ位置、Textract Query文句など）を管理して拡張性確保。
 
-C. 사용자 메시지 가이드
+C. ユーザーメッセージガイド
 
-&nbsp;\* 시스템 판단 에러: "사원증 규격 불일치", "등록 정보 불일치", "계정 비활성화" 등 구체적 명시.
+&nbsp;\* システム判定エラー: "社員証規格不一致"、"登録情報不一致"、"アカウント無効化"など具体的に明示。
 
-&nbsp;\* 기타 상황: "밝은 곳에서 다시 시도해주세요"로 통일.
+&nbsp;\* その他状況: "明るい場所で再度お試しください"で統一。
 
-4\. 파일 구조 및 샘플 코드 (File Structure \& Code)
+4\. ファイル構造およびサンプルコード (File Structure \& Code)
 
 📂 infra/auth\_stack.py (AWS CDK)
 
@@ -132,7 +132,7 @@ from image\_utils import process\_thumbnail
 
 def verify\_ad\_password(user\_id, password):
 
-&nbsp;   # Direct Connect를 통한 AD 인증 (10초 타임아웃)
+&nbsp;   # Direct Connectを通じたAD認証（10秒タイムアウト）
 
 &nbsp;   try:
 
@@ -178,15 +178,15 @@ function AuthPage() {
 
 &nbsp;       <FaceLivenessDetector 
 
-&nbsp;         onAnalysisComplete={async (res) => { /\* 얼굴 인식 로직 \*/ }}
+&nbsp;         onAnalysisComplete={async (res) => { /\* 顔認識ロジック \*/ }}
 
-&nbsp;         onError={(err) => alert("밝은 곳에서 다시 시도해주세요.")}
+&nbsp;         onError={(err) => alert("明るい場所で再度お試しください。")}
 
 &nbsp;       />
 
 &nbsp;     )}
 
-&nbsp;     <button onClick={() => setMode('ID\_SCAN')}>사원증으로 인증/등록</button>
+&nbsp;     <button onClick={() => setMode('ID\_SCAN')}>社員証で認証/登録</button>
 
 &nbsp;   </div>
 
@@ -196,23 +196,23 @@ function AuthPage() {
 
 
 
-5\. AI 작업 지시 사항 (Action Items for AI)
+5\. AI作業指示事項 (Action Items for AI)
 
-&nbsp;\* AD 연동 심화: ldap3를 사용하여 VPC 환경 내에서 AD 계정 상태(활성/비활성)를 체크하는 로직을 완성해줘.
+&nbsp;\* AD連携深化: ldap3を使用してVPC環境内でADアカウント状態（有効/無効）をチェックするロジックを完成させてください。
 
-&nbsp;\* 사원증 패턴 처리: DynamoDB에서 사원증 패턴 정보를 읽어와 Amazon Textract Queries를 동적으로 구성하는 기능을 구현해줘.
+&nbsp;\* 社員証パターン処理: DynamoDBから社員証パターン情報を読み込んでAmazon Textract Queriesを動的に構成する機能を実装してください。
 
-&nbsp;\* 이미지 처리: Pillow를 사용하여 이미지를 200x200 크기로 리사이징하고 S3의 적절한 경로(enroll/ 또는 logins/)에 저장하는 유틸리티를 작성해줘.
+&nbsp;\* 画像処理: Pillowを使用して画像を200x200サイズにリサイズし、S3の適切なパス（enroll/またはlogins/）に保存するユーティリティを作成してください。
 
-&nbsp;\* 에러 핸들링: 백엔드 응답 시 system\_reason과 user\_message를 분리하여 프론트엔드에 전달하는 구조를 설계해줘.
+&nbsp;\* エラーハンドリング: バックエンドレスポンス時にsystem\_reasonとuser\_messageを分離してフロントエンドに伝達する構造を設計してください。
 
-📥 마크다운 파일 활용 방법
+📥 マークダウンファイル活用方法
 
-&nbsp;\* 위 내용을 복사하여 face\_auth\_spec.md 파일로 저장하세요.
+&nbsp;\* 上記内容をコピーしてface\_auth\_spec.mdファイルとして保存してください。
 
-&nbsp;\* 바이브 코딩 AI에게 이 파일을 업로드하며 \*\*"이 사양서대로 전체 프로젝트 구조를 잡고 파이썬 코드를 작성해줘"\*\*라고 지시하세요.
+&nbsp;\* Vibe Coding AIにこのファイルをアップロードし、\*\*「この仕様書通りに全体プロジェクト構造を作成してPythonコードを作成してください」\*\*と指示してください。
 
-추가로 특정 기능(예: 상세 LDAP 쿼리, 사원증 인식용 Textract Query 설정 등)에 대한 코드가 더 필요하시면 말씀해 주세요!
+追加で特定機能（例: 詳細LDAPクエリ、社員証認識用Textract Query設定など）に対するコードがさらに必要な場合はお知らせください！
 
 
 
