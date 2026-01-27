@@ -636,7 +636,7 @@ class FaceAuthStack(Stack):
             effect=iam.Effect.ALLOW,
             principals=[iam.AnyPrincipal()],
             actions=["execute-api:Invoke"],
-            resources=["execute-api:/*"],
+            resources=[f"arn:aws:execute-api:{self.region}:{self.account}:*/*"],
             conditions=ip_conditions
         )
         
@@ -645,7 +645,7 @@ class FaceAuthStack(Stack):
             effect=iam.Effect.DENY,
             principals=[iam.AnyPrincipal()],
             actions=["execute-api:Invoke"],
-            resources=["execute-api:/*"],
+            resources=[f"arn:aws:execute-api:{self.region}:{self.account}:*/*"],
             conditions={
                 "NotIpAddress": {
                     "aws:SourceIp": self.allowed_ip_ranges
