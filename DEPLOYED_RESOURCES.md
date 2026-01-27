@@ -279,6 +279,7 @@ aws rekognition create-collection \
 ```
 VPC ID: vpc-0af2750e674368e60
 CIDR: 10.0.0.0/16
+Allowed IP Ranges: 210.128.54.64/27
 ```
 
 ### サブネット
