@@ -37,7 +37,7 @@ if (-not $SkipBuild) {
 # CloudFormationスタックから情報を取得
 Write-Host "Getting deployment information from CloudFormation..." -ForegroundColor Yellow
 
-$stackName = "FaceAuthStack"
+$stackName = "FaceAuthIdPStack"
 
 try {
     # S3バケット名を取得

@@ -339,7 +339,7 @@ class FaceAuthStack(Stack):
             encryption=s3.BucketEncryption.S3_MANAGED,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             removal_policy=RemovalPolicy.RETAIN,
-            versioning=True,
+            versioned=True,  # Changed from 'versioning' to 'versioned'
             website_index_document="index.html",
             website_error_document="index.html"  # For SPA routing
         )
