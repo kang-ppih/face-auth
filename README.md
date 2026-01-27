@@ -6,6 +6,7 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
 
 このシステムは以下のAWSサービスを使用します：
 
+### バックエンド
 - **AWS CDK (Python)**: Infrastructure as Code
 - **Amazon VPC**: ネットワーク分離とセキュリティ
 - **AWS Direct Connect**: オンプレミスActive Directory接続
@@ -17,6 +18,12 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
 - **AWS Cognito**: ユーザーセッション管理
 - **Amazon API Gateway**: REST APIエンドポイント
 - **Amazon CloudWatch**: ロギングとモニタリング
+
+### フロントエンド
+- **React 19.2.4**: UIフレームワーク
+- **TypeScript 4.9.5**: 型安全性
+- **AWS Amplify 6.16.0**: AWS統合
+- **Axios 1.13.4**: HTTP通信
 
 ## 🚀 クイックスタート
 
@@ -34,7 +41,7 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
 
 3. **Python 3.9+のインストール**
 
-### デプロイ手順
+### バックエンドデプロイ手順
 
 1. **リポジトリのクローンと依存関係のインストール**
    ```bash
@@ -352,3 +359,92 @@ pytest tests/test_backend_integration.py -v
 **注意**: このシステムは本番環境で使用する前に、徹底的なセキュリティレビューとテストが必要です。
 
 **リポジトリ**: https://github.com/kang-ppih/face-auth
+
+
+## 🎨 フロントエンド
+
+### セットアップ
+
+```bash
+cd frontend
+npm install
+```
+
+### 環境変数設定
+
+`.env` ファイルは既に設定されています：
+
+```bash
+REACT_APP_API_ENDPOINT=https://zao7evz9jk.execute-api.ap-northeast-1.amazonaws.com/prod
+REACT_APP_AWS_REGION=ap-northeast-1
+REACT_APP_COGNITO_USER_POOL_ID=ap-northeast-1_ikSWDeIew
+REACT_APP_COGNITO_CLIENT_ID=6u4blhui7p35ra4p882srvrpod
+```
+
+### 開発サーバー起動
+
+```bash
+npm start
+```
+
+ブラウザで http://localhost:3000 が開きます。
+
+### ビルド
+
+```bash
+npm run build
+```
+
+最適化されたビルドが `build/` フォルダに生成されます。
+
+### 機能
+
+- **顔認証ログイン**: 1:N 顔マッチングによるパスワードレス認証
+- **新規登録**: 社員証 OCR + 顔データ登録
+- **緊急ログイン**: 社員証 + AD パスワード認証
+- **再登録**: 既存社員の顔データ更新
+
+### 詳細ドキュメント
+
+- [フロントエンド README](frontend/README.md)
+- [クイックスタートガイド](FRONTEND_QUICK_START.md)
+- [実装サマリー](FRONTEND_IMPLEMENTATION_SUMMARY.md)
+
+## 📚 ドキュメント
+
+### 技術ドキュメント
+- [インフラストラクチャアーキテクチャ](docs/INFRASTRUCTURE_ARCHITECTURE.md)
+- [Cognitoサービス](docs/COGNITO_SERVICE.md)
+- [セッション管理](docs/SESSION_MANAGEMENT.md)
+- [タイムアウトマネージャー](docs/TIMEOUT_MANAGER.md)
+- [IPアクセス制御](docs/IP_ACCESS_CONTROL.md)
+
+### デプロイメントガイド
+- [デプロイメントガイド](DEPLOYMENT_GUIDE.md)
+- [ローカル実行ガイド](LOCAL_EXECUTION_GUIDE.md)
+- [デプロイ後ガイド](POST_DEPLOYMENT_GUIDE.md)
+
+### 実装レポート
+- [Lambda実装サマリー](LAMBDA_HANDLERS_IMPLEMENTATION.md)
+- [テストカバレッジ分析](TEST_COVERAGE_ANALYSIS.md)
+- [VPC NACL実装](VPC_NETWORK_ACL_IMPLEMENTATION.md)
+- [フロントエンド実装サマリー](FRONTEND_IMPLEMENTATION_SUMMARY.md)
+
+## 🤝 貢献
+
+プロジェクトへの貢献を歓迎します。以下のガイドラインに従ってください：
+
+1. プロジェクト標準に従う（`.kiro/steering/project-standards.md`）
+2. Gitワークフローに従う（`.kiro/steering/git-workflow.md`）
+3. コーディング規約に従う（`.kiro/steering/python-coding-standards.md`）
+4. テストを追加する
+5. ドキュメントを更新する
+
+## 📄 ライセンス
+
+Copyright © 2024 Face-Auth IdP System
+
+---
+
+**最終更新**: 2024年1月28日
+**バージョン**: 1.0

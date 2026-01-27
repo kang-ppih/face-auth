@@ -1,0 +1,79 @@
+.login-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.login-container h2 {
+  text-align: center;
+  color: #333;
+  margin-bottom: 30px;
+}
+
+.login-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.step-instruction {
+  font-size: 18px;
+  color: #555;
+  text-align: center;
+  margin: 0;
+}
+
+.error-message {
+  padding: 12px 20px;
+  background: #fee;
+  border: 1px solid #fcc;
+  border-radius: 6px;
+  color: #c33;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.emergency-prompt {
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 6px;
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.emergency-prompt p {
+  margin: 0 0 12px 0;
+  color: #856404;
+}
+
+.emergency-button {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+  background: #ff9800;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.emergency-button:hover {
+  background: #f57c00;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #0066cc;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
