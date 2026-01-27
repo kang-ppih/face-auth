@@ -1,10 +1,14 @@
-# API Gateway IPアクセス制御
+# IPアクセス制御 - Face-Auth IdP System
 
-Face-Auth IdP SystemのAPI GatewayにIPベースのアクセス制御を実装しています。
+Face-Auth IdP SystemのIPベースのアクセス制御を多層防御で実装しています。
 
 ## 概要
 
-API Gatewayリソースポリシーを使用して、特定のIPアドレス範囲からのみAPIへのアクセスを許可します。
+**3層のセキュリティレイヤー**でIPアドレスベースのアクセス制御を実装：
+
+1. **VPC Network ACL** - ネットワークレベル（最も外側）
+2. **API Gateway Resource Policy** - アプリケーションレベル
+3. **Security Groups** - インスタンスレベル
 
 ### セキュリティレベル
 
@@ -12,6 +16,67 @@ API Gatewayリソースポリシーを使用して、特定のIPアドレス範�
 2. **ステージング/本番環境:** 特定のIPアドレス範囲のみ許可
 
 ---
+
+## 🔒 セキュリティアーキテクチャ
+
+### 多層防御（Defense in Depth）
+
+```
+インターネット
+    ↓
+┌─────────────────────────────────────┐
+│ Layer 1: VPC Network ACL            │ ← 新規追加 ✅
+│ - パブリックサブネットレベル         │
+│ - ステートレス                       │
+│ - ALLOWED_IPSのみ通過               │
+└─────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────┐
+│ Layer 2: API Gateway Resource Policy│ ← 既存
+│ - IAMベースのアクセス制御            │
+│ - ALLOWED_IPSのみ通過               │
+└─────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────┐
+│ Layer 3: Security Groups            │ ← 既存
+│ - Lambda、VPCリソース                │
+│ - ステートフル                       │
+└─────────────────────────────────────┘
+    ↓
+Lambda Functions
+```
+
+---
+
+## Layer 1: VPC Network ACL（新規追加）
+
+### 概要
+
+パブリックサブネットに適用されるNetwork ACLで、ALLOWED_IPSからのトラフィックのみを許可します。
+
+### 特徴
+
+- ✅ **ステートレス:** 明示的な許可が必要
+- ✅ **サブネットレベル:** すべてのリソースに適用
+- ✅ **早期ブロック:** VPCに入る前に不正トラフィックを遮断
+- ✅ **コスト削減:** 不正リクエストがAPI Gatewayに到達しない
+
+### 許可ルール
+
+```
+Rule 100, 110, 120, ... : ALLOW HTTPS (443) from ALLOWED_IPS
+Rule 101, 111, 121, ... : ALLOW HTTP (80) from ALLOWED_IPS
+Rule 102, 112, 122, ... : ALLOW Ephemeral (1024-65535) from ALLOWED_IPS
+Rule 32767              : DENY ALL
+```
+
+### 実装詳細
+
+詳細は `VPC_NETWORK_ACL_IMPLEMENTATION.md` を参照してください。
+
+---
+
+## Layer 2: API Gateway Resource Policy（既存）
 
 ## 設定方法
 
@@ -381,5 +446,5 @@ npx cdk deploy --profile dev \
 
 ---
 
-**最終更新:** 2026-01-24  
-**バージョン:** 1.0
+**最終更新:** 2026-01-28  
+**バージョン:** 2.0 (VPC Network ACL追加)

@@ -92,7 +92,7 @@ class FaceAuthStack(Stack):
 
     def _create_vpc_and_networking(self):
         """
-        Create VPC, subnets, security groups, and Direct Connect components
+        Create VPC, subnets, security groups, Network ACLs, and Direct Connect components
         Requirements: 4.1, 4.5
         """
         # Create VPC for Face-Auth system
@@ -119,6 +119,9 @@ class FaceAuthStack(Stack):
                 )
             ]
         )
+
+        # Create Network ACL for Public Subnets with IP restrictions
+        self._create_network_acls()
 
         # Security group for Lambda functions
         self.lambda_security_group = ec2.SecurityGroup(
@@ -180,6 +183,93 @@ class FaceAuthStack(Stack):
         #         "value": "FaceAuth-OnPremises-Gateway"
         #     }]
         # )
+
+    def _create_network_acls(self):
+        """
+        Create Network ACLs to restrict access to allowed IP ranges only
+        This provides an additional layer of security at the subnet level
+        """
+        # Get public subnets
+        public_subnets = self.vpc.public_subnets
+        
+        if not public_subnets:
+            return
+        
+        # Create Network ACL for public subnets
+        self.public_nacl = ec2.NetworkAcl(
+            self, "PublicSubnetNACL",
+            vpc=self.vpc,
+            network_acl_name="FaceAuth-Public-NACL"
+        )
+        
+        # Associate NACL with all public subnets
+        for idx, subnet in enumerate(public_subnets):
+            ec2.NetworkAclEntry(
+                self, f"PublicNACLAssociation{idx}",
+                network_acl=self.public_nacl,
+                cidr=ec2.AclCidr.any_ipv4(),
+                rule_number=100 + idx,
+                traffic=ec2.AclTraffic.all_traffic(),
+                direction=ec2.TrafficDirection.EGRESS,
+                rule_action=ec2.Action.ALLOW
+            )
+            
+            # Associate NACL with subnet
+            ec2.CfnSubnetNetworkAclAssociation(
+                self, f"PublicSubnetNACLAssoc{idx}",
+                network_acl_id=self.public_nacl.network_acl_id,
+                subnet_id=subnet.subnet_id
+            )
+        
+        # Add ingress rules for allowed IPs only
+        rule_number = 100
+        for idx, ip_range in enumerate(self.allowed_ip_ranges):
+            # Allow HTTPS (443) from allowed IPs
+            ec2.NetworkAclEntry(
+                self, f"AllowHTTPS{idx}",
+                network_acl=self.public_nacl,
+                cidr=ec2.AclCidr.ipv4(ip_range),
+                rule_number=rule_number,
+                traffic=ec2.AclTraffic.tcp_port(443),
+                direction=ec2.TrafficDirection.INGRESS,
+                rule_action=ec2.Action.ALLOW
+            )
+            rule_number += 10
+            
+            # Allow HTTP (80) from allowed IPs (for redirects)
+            ec2.NetworkAclEntry(
+                self, f"AllowHTTP{idx}",
+                network_acl=self.public_nacl,
+                cidr=ec2.AclCidr.ipv4(ip_range),
+                rule_number=rule_number,
+                traffic=ec2.AclTraffic.tcp_port(80),
+                direction=ec2.TrafficDirection.INGRESS,
+                rule_action=ec2.Action.ALLOW
+            )
+            rule_number += 10
+            
+            # Allow ephemeral ports for return traffic
+            ec2.NetworkAclEntry(
+                self, f"AllowEphemeral{idx}",
+                network_acl=self.public_nacl,
+                cidr=ec2.AclCidr.ipv4(ip_range),
+                rule_number=rule_number,
+                traffic=ec2.AclTraffic.tcp_port_range(1024, 65535),
+                direction=ec2.TrafficDirection.INGRESS,
+                rule_action=ec2.Action.ALLOW
+            )
+            rule_number += 10
+        
+        # Deny all other inbound traffic (explicit deny)
+        ec2.NetworkAclEntry(
+            self, "DenyAllOtherIngress",
+            network_acl=self.public_nacl,
+            cidr=ec2.AclCidr.any_ipv4(),
+            rule_number=32767,  # Lowest priority
+            traffic=ec2.AclTraffic.all_traffic(),
+            direction=ec2.TrafficDirection.INGRESS,
+            rule_action=ec2.Action.DENY
+        )
 
     def _create_s3_buckets(self):
         """
