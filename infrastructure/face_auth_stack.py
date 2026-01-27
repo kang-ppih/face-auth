@@ -265,7 +265,7 @@ class FaceAuthStack(Stack):
             self, "DenyAllOtherIngress",
             network_acl=self.public_nacl,
             cidr=ec2.AclCidr.any_ipv4(),
-            rule_number=32767,  # Lowest priority
+            rule_number=32766,  # Maximum allowed rule number
             traffic=ec2.AclTraffic.all_traffic(),
             direction=ec2.TrafficDirection.INGRESS,
             rule_action=ec2.Action.DENY
