@@ -80,7 +80,21 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
    
    詳細は [IPアクセス制御ドキュメント](docs/IP_ACCESS_CONTROL.md) を参照してください。
 
-4. **Rekognitionコレクションの作成**
+4. **CORS設定（オプション）**
+   
+   特定のフロントエンドオリジンからのみAPIアクセスを許可する場合：
+   
+   ```bash
+   # 単一オリジンを許可
+   cdk deploy --context frontend_origins="https://app.example.com"
+   
+   # 複数のオリジンを許可（カンマ区切り）
+   cdk deploy --context frontend_origins="https://app.example.com,https://staging.example.com"
+   ```
+   
+   詳細は [CORS設定ガイド](CORS_AND_IP_RESTRICTION_GUIDE.md) を参照してください。
+
+5. **Rekognitionコレクションの作成**
    ```bash
    aws rekognition create-collection --collection-id face-auth-employees
    ```
@@ -396,6 +410,18 @@ npm run build
 ```
 
 最適化されたビルドが `build/` フォルダに生成されます。
+
+### フロントエンドデプロイ
+
+```powershell
+# フロントエンドのビルドとデプロイ
+.\deploy-frontend.ps1 -Profile dev
+
+# ビルドをスキップしてデプロイのみ
+.\deploy-frontend.ps1 -Profile dev -SkipBuild
+```
+
+詳細は [フロントエンドクイックスタート](FRONTEND_QUICK_START.md) を参照してください。
 
 ### 機能
 

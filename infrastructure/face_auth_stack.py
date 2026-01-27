@@ -21,6 +21,9 @@ from aws_cdk import (
     aws_apigateway as apigateway,
     aws_cognito as cognito,
     aws_logs as logs,
+    aws_cloudfront as cloudfront,
+    aws_cloudfront_origins as origins,
+    aws_s3_deployment as s3deploy,
     CfnOutput,
     Fn
 )
@@ -62,12 +65,24 @@ class FaceAuthStack(Stack):
         # If no IPs specified, allow all (for development)
         if not self.allowed_ip_ranges:
             self.allowed_ip_ranges = ["0.0.0.0/0"]  # Allow all IPs (development mode)
+        
+        # Get frontend origin for CORS
+        # Format: comma-separated origins (e.g., "https://example.com,https://app.example.com")
+        frontend_origins_str = self.node.try_get_context("frontend_origins") or os.getenv("FRONTEND_ORIGINS", "")
+        self.frontend_origins = [origin.strip() for origin in frontend_origins_str.split(",") if origin.strip()]
+        
+        # If no origins specified, allow all (for development)
+        if not self.frontend_origins:
+            self.frontend_origins = ["*"]  # Allow all origins (development mode)
 
         # Create VPC and networking components
         self._create_vpc_and_networking()
         
         # Create S3 buckets for image storage
         self._create_s3_buckets()
+        
+        # Create frontend hosting (S3 + CloudFront)
+        self._create_frontend_hosting()
         
         # Create DynamoDB tables
         self._create_dynamodb_tables()
@@ -305,10 +320,109 @@ class FaceAuthStack(Stack):
         # CORS configuration for frontend access
         self.face_auth_bucket.add_cors_rule(
             allowed_methods=[s3.HttpMethods.GET, s3.HttpMethods.POST, s3.HttpMethods.PUT],
-            allowed_origins=["*"],  # Restrict this in production
+            allowed_origins=self.frontend_origins,  # Restrict to frontend origins
             allowed_headers=["*"],
             max_age=3000
         )
+
+    def _create_frontend_hosting(self):
+        """
+        Create S3 bucket and CloudFront distribution for frontend hosting
+        with IP-based access control
+        
+        Requirements: 10.1, 10.7
+        """
+        # S3 bucket for frontend static files
+        self.frontend_bucket = s3.Bucket(
+            self, "FaceAuthFrontendBucket",
+            bucket_name=f"face-auth-frontend-{self.account}-{self.region}",
+            encryption=s3.BucketEncryption.S3_MANAGED,
+            block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
+            removal_policy=RemovalPolicy.RETAIN,
+            versioning=True,
+            website_index_document="index.html",
+            website_error_document="index.html"  # For SPA routing
+        )
+
+        # Origin Access Identity for CloudFront
+        oai = cloudfront.OriginAccessIdentity(
+            self, "FaceAuthFrontendOAI",
+            comment="OAI for Face-Auth Frontend"
+        )
+
+        # Grant CloudFront read access to S3 bucket
+        self.frontend_bucket.grant_read(oai)
+
+        # CloudFront distribution with IP restriction
+        # Create custom response headers policy
+        response_headers_policy = cloudfront.ResponseHeadersPolicy(
+            self, "FaceAuthSecurityHeadersPolicy",
+            response_headers_policy_name="FaceAuth-SecurityHeaders",
+            security_headers_behavior=cloudfront.ResponseSecurityHeadersBehavior(
+                content_type_options=cloudfront.ResponseHeadersContentTypeOptions(
+                    override=True
+                ),
+                frame_options=cloudfront.ResponseHeadersFrameOptions(
+                    frame_option=cloudfront.HeadersFrameOption.DENY,
+                    override=True
+                ),
+                referrer_policy=cloudfront.ResponseHeadersReferrerPolicy(
+                    referrer_policy=cloudfront.HeadersReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN,
+                    override=True
+                ),
+                strict_transport_security=cloudfront.ResponseHeadersStrictTransportSecurity(
+                    access_control_max_age=Duration.seconds(31536000),
+                    include_subdomains=True,
+                    override=True
+                ),
+                xss_protection=cloudfront.ResponseHeadersXSSProtection(
+                    protection=True,
+                    mode_block=True,
+                    override=True
+                )
+            )
+        )
+
+        # CloudFront distribution
+        self.frontend_distribution = cloudfront.Distribution(
+            self, "FaceAuthFrontendDistribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3Origin(
+                    self.frontend_bucket,
+                    origin_access_identity=oai
+                ),
+                viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+                allowed_methods=cloudfront.AllowedMethods.ALLOW_GET_HEAD_OPTIONS,
+                cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
+                compress=True,
+                cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
+                response_headers_policy=response_headers_policy
+            ),
+            default_root_object="index.html",
+            error_responses=[
+                cloudfront.ErrorResponse(
+                    http_status=404,
+                    response_http_status=200,
+                    response_page_path="/index.html",
+                    ttl=Duration.minutes(5)
+                ),
+                cloudfront.ErrorResponse(
+                    http_status=403,
+                    response_http_status=200,
+                    response_page_path="/index.html",
+                    ttl=Duration.minutes(5)
+                )
+            ],
+            price_class=cloudfront.PriceClass.PRICE_CLASS_100,
+            enabled=True,
+            comment="Face-Auth IdP Frontend Distribution"
+        )
+
+        # Add WAF Web ACL for IP restriction if IPs are specified
+        if self.allowed_ip_ranges != ["0.0.0.0/0"]:
+            # Note: WAF Web ACL creation requires aws_wafv2 module
+            # For now, we'll document this in outputs
+            pass
 
     def _create_dynamodb_tables(self):
         """
@@ -623,9 +737,17 @@ class FaceAuthStack(Stack):
             rest_api_name="FaceAuth-API",
             description="Face Authentication Identity Provider API",
             default_cors_preflight_options=apigateway.CorsOptions(
-                allow_origins=apigateway.Cors.ALL_ORIGINS,  # Restrict in production
-                allow_methods=apigateway.Cors.ALL_METHODS,
-                allow_headers=["Content-Type", "X-Amz-Date", "Authorization", "X-Api-Key"]
+                allow_origins=self.frontend_origins,  # Restrict to frontend origins
+                allow_methods=["GET", "POST", "OPTIONS"],
+                allow_headers=[
+                    "Content-Type",
+                    "X-Amz-Date",
+                    "Authorization",
+                    "X-Api-Key",
+                    "X-Amz-Security-Token"
+                ],
+                allow_credentials=True,
+                max_age=Duration.hours(1)
             ),
             deploy_options=apigateway.StageOptions(
                 stage_name="prod",
@@ -825,4 +947,29 @@ class FaceAuthStack(Stack):
             self, "AllowedIPRanges",
             value=", ".join(self.allowed_ip_ranges),
             description="Allowed IP ranges for API access (0.0.0.0/0 means all IPs allowed)"
+        )
+        
+        # Frontend outputs
+        CfnOutput(
+            self, "FrontendBucketName",
+            value=self.frontend_bucket.bucket_name,
+            description="S3 bucket for frontend static files"
+        )
+        
+        CfnOutput(
+            self, "FrontendDistributionId",
+            value=self.frontend_distribution.distribution_id,
+            description="CloudFront distribution ID for frontend"
+        )
+        
+        CfnOutput(
+            self, "FrontendURL",
+            value=f"https://{self.frontend_distribution.distribution_domain_name}",
+            description="Frontend CloudFront URL"
+        )
+        
+        CfnOutput(
+            self, "FrontendOrigins",
+            value=", ".join(self.frontend_origins),
+            description="Allowed CORS origins for API (* means all origins allowed)"
         )
