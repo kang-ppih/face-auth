@@ -72,7 +72,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         if not all([card_templates_table, user_pool_id, client_id]):
             logger.error("Missing required environment variables")
             return _error_response(500, ErrorCodes.GENERIC_ERROR,
-                                 "서버 설정 오류", "Missing environment variables", request_id)
+                                 "サーバー設定エラー", "Missing environment variables", request_id)
         
         # Parse request body
         body = json.loads(event.get('body', '{}'))
@@ -84,7 +84,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         if not id_card_image_b64 or not password:
             logger.warning("Missing required data in request")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "사원증 이미지와 비밀번호가 필요합니다",
+                                 "社員証画像とパスワードが必要です",
                                  "Missing id_card_image or password", request_id)
         
         # Decode base64 image
@@ -93,7 +93,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         except Exception as e:
             logger.error(f"Failed to decode base64 image: {str(e)}")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "이미지 형식이 올바르지 않습니다",
+                                 "画像形式が正しくありません",
                                  f"Base64 decode error: {str(e)}", request_id)
         
         # Extract client info for session and rate limiting
@@ -155,7 +155,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         logger.info("Step 2: Processing ID card with OCR")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before OCR processing", request_id)
         
         employee_info, ocr_error = ocr_service.extract_employee_info(id_card_image, db_service)
@@ -192,7 +192,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
             logger.warning("AD timeout limit reached before authentication")
             _increment_rate_limit(rate_limit_table, rate_limit_key, attempt_count + 1, window_start)
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "인증 서버 연결 시간 초과",
+                                 "認証サーバー接続タイムアウト",
                                  "AD timeout before authentication", request_id)
         
         # Note: AD connector may have issues, so we'll handle gracefully
@@ -224,7 +224,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         logger.info(f"Step 4: Creating authentication session for {employee_info.employee_id}")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before session creation", request_id)
         
         session, error = cognito_service.create_authentication_session(

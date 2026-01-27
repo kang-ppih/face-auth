@@ -70,7 +70,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not all([bucket_name, employee_faces_table, user_pool_id, client_id]):
             logger.error("Missing required environment variables")
             return _error_response(500, ErrorCodes.GENERIC_ERROR,
-                                 "서버 설정 오류", "Missing environment variables", request_id)
+                                 "サーバー設定エラー", "Missing environment variables", request_id)
         
         # Parse request body
         body = json.loads(event.get('body', '{}'))
@@ -81,7 +81,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not face_image_b64:
             logger.warning("Missing face image in request")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "얼굴 이미지가 필요합니다",
+                                 "顔画像が必要です",
                                  "Missing face_image", request_id)
         
         # Decode base64 image
@@ -90,7 +90,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"Failed to decode base64 image: {str(e)}")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "이미지 형식이 올바르지 않습니다",
+                                 "画像形式が正しくありません",
                                  f"Base64 decode error: {str(e)}", request_id)
         
         # Extract client info for session
@@ -110,7 +110,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Step 1: Performing liveness detection")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before liveness detection", request_id)
         
         liveness_result = face_service.detect_liveness(face_image)
@@ -130,7 +130,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Step 2: Performing 1:N face matching")
         if not timeout_manager.should_continue(buffer_seconds=3.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before face matching", request_id)
         
         # Generate thumbnail for search
@@ -189,7 +189,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info(f"Step 3: Creating authentication session for {employee_id}")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before session creation", request_id)
         
         session, error = cognito_service.create_authentication_session(

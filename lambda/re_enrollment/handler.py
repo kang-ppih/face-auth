@@ -75,7 +75,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not all([bucket_name, card_templates_table, employee_faces_table]):
             logger.error("Missing required environment variables")
             return _error_response(500, ErrorCodes.GENERIC_ERROR,
-                                 "서버 설정 오류", "Missing environment variables", request_id)
+                                 "サーバー設定エラー", "Missing environment variables", request_id)
         
         # Parse request body
         body = json.loads(event.get('body', '{}'))
@@ -87,7 +87,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not id_card_image_b64 or not face_image_b64:
             logger.warning("Missing required images in request")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "사원증과 얼굴 이미지가 필요합니다",
+                                 "社員証と顔画像が必要です",
                                  "Missing id_card_image or face_image", request_id)
         
         # Decode base64 images
@@ -97,7 +97,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         except Exception as e:
             logger.error(f"Failed to decode base64 images: {str(e)}")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "이미지 형식이 올바르지 않습니다",
+                                 "画像形式が正しくありません",
                                  f"Base64 decode error: {str(e)}", request_id)
         
         # Initialize services
@@ -114,7 +114,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Step 1: Processing ID card with OCR for identity verification")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before OCR processing", request_id)
         
         employee_info, ocr_error = ocr_service.extract_employee_info(id_card_image, db_service)
@@ -146,7 +146,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not timeout_manager.check_ad_timeout():
             logger.warning("AD timeout limit reached before verification")
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "인증 서버 연결 시간 초과",
+                                 "認証サーバー接続タイムアウト",
                                  "AD timeout before verification", request_id)
         
         # Note: AD connector may have issues, so we'll handle gracefully
@@ -212,7 +212,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         logger.info("Step 4: Processing new face image with liveness detection")
         if not timeout_manager.should_continue(buffer_seconds=3.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before face processing", request_id)
         
         liveness_result = face_service.detect_liveness(face_image)
@@ -247,7 +247,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Rollback: Try to restore old face if possible
             logger.error("Timeout before indexing new face - attempting rollback")
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
-                                 "처리 시간이 초과되었습니다",
+                                 "処理時間が超過しました",
                                  "Timeout before face indexing", request_id)
         
         new_face_id = face_service.index_face(thumbnail_bytes, employee_info.employee_id)

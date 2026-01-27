@@ -65,7 +65,7 @@ def handle_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not all([user_pool_id, client_id, employee_faces_table]):
             logger.error("Missing required environment variables")
             return _error_response(500, ErrorCodes.GENERIC_ERROR,
-                                 "서버 설정 오류", "Missing environment variables", request_id)
+                                 "サーバー設定エラー", "Missing environment variables", request_id)
         
         # Parse query parameters
         query_params = event.get('queryStringParameters', {}) or {}
@@ -83,7 +83,7 @@ def handle_status(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not any([session_id, access_token, employee_id]):
             logger.warning("No status check parameters provided")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
-                                 "세션 ID, 액세스 토큰 또는 직원 ID가 필요합니다",
+                                 "セッションID、アクセストークンまたは社員IDが必要です",
                                  "Missing session_id, access_token, or employee_id", request_id)
         
         # Initialize services

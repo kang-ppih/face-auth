@@ -94,7 +94,7 @@ class OCRService:
                 logger.error("No active card templates found")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                    user_message="사원증 규격 불일치",
+                    user_message="社員証規格不一致",
                     system_reason="No active card templates available",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
@@ -120,7 +120,7 @@ class OCRService:
             logger.warning("No card template matched the provided image")
             return None, ErrorResponse(
                 error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                user_message="사원증 규격 불일치",
+                user_message="社員証規格不一致",
                 system_reason="Image does not match any active card template",
                 timestamp=datetime.now(),
                 request_id=request_id or "unknown"
@@ -501,10 +501,10 @@ def validate_employee_id_format(employee_id: str) -> bool:
         employee_id: Employee identifier to validate
         
     Returns:
-        bool: True if format is valid (6 digits or contractor format)
+        bool: True if format is valid (7 digits or contractor format)
     """
-    # Standard employee: 6 digits
-    if re.match(r'^\d{6}$', employee_id):
+    # Standard employee: 7 digits
+    if re.match(r'^\d{7}$', employee_id):
         return True
     
     # Contractor: C followed by 5 digits

@@ -37,19 +37,19 @@ class ErrorHandler:
         return {
             # Specific error messages - System judgment errors
             ErrorCodes.ID_CARD_FORMAT_MISMATCH: {
-                "user_message": "사원증 규격 불일치",
+                "user_message": "社員証規格不一致",
                 "system_reason": "ID card format does not match any registered Card_Template pattern",
                 "retry_allowed": True,
                 "log_level": "WARNING"
             },
             ErrorCodes.REGISTRATION_INFO_MISMATCH: {
-                "user_message": "등록 정보 불일치",
+                "user_message": "登録情報不一致",
                 "system_reason": "Employee information extracted from ID card does not match Active Directory records",
                 "retry_allowed": True,
                 "log_level": "WARNING"
             },
             ErrorCodes.ACCOUNT_DISABLED: {
-                "user_message": "계정 비활성화",
+                "user_message": "アカウント無効化",
                 "system_reason": "Active Directory account is disabled (userAccountControl indicates disabled state)",
                 "retry_allowed": False,
                 "log_level": "WARNING"
@@ -57,31 +57,31 @@ class ErrorHandler:
             
             # Generic error messages - Technical issues
             ErrorCodes.LIVENESS_FAILED: {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Amazon Rekognition Liveness detection failed (confidence < 90%)",
                 "retry_allowed": True,
                 "log_level": "INFO"
             },
             ErrorCodes.FACE_NOT_FOUND: {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Face not found in 1:N matching against enrolled faces",
                 "retry_allowed": True,
                 "log_level": "INFO"
             },
             ErrorCodes.AD_CONNECTION_ERROR: {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Active Directory connection failed or timed out (10 second limit)",
                 "retry_allowed": True,
                 "log_level": "ERROR"
             },
             ErrorCodes.TIMEOUT_ERROR: {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Lambda function timeout approaching (15 second limit)",
                 "retry_allowed": True,
                 "log_level": "ERROR"
             },
             ErrorCodes.GENERIC_ERROR: {
-                "user_message": "밝은 곳에서 다시 시도해주세요",
+                "user_message": "明るい場所で再度お試しください",
                 "system_reason": "Unspecified technical error occurred during processing",
                 "retry_allowed": True,
                 "log_level": "ERROR"
@@ -89,13 +89,13 @@ class ErrorHandler:
             
             # Additional error codes
             ErrorCodes.INVALID_REQUEST: {
-                "user_message": "잘못된 요청입니다",
+                "user_message": "不正なリクエストです",
                 "system_reason": "Request validation failed - missing or invalid parameters",
                 "retry_allowed": False,
                 "log_level": "WARNING"
             },
             ErrorCodes.UNAUTHORIZED: {
-                "user_message": "인증이 필요합니다",
+                "user_message": "認証が必要です",
                 "system_reason": "Authentication required or session expired",
                 "retry_allowed": False,
                 "log_level": "WARNING"
