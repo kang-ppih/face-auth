@@ -19,16 +19,14 @@ import logging
 from typing import Dict, Any
 from datetime import datetime, timedelta
 
-# Add shared directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
-
-from ocr_service import OCRService
-from ad_connector import ADConnector
-from cognito_service import CognitoService
-from error_handler import ErrorHandler
-from timeout_manager import TimeoutManager
-from dynamodb_service import DynamoDBService
-from models import ErrorCodes
+# Import from shared modules (bundled with function)
+from shared.ocr_service import OCRService
+from shared.ad_connector import ADConnector
+from shared.cognito_service import CognitoService
+from shared.error_handler import ErrorHandler
+from shared.timeout_manager import TimeoutManager
+from shared.dynamodb_service import DynamoDBService
+from shared.models import ErrorCodes
 
 # Configure logging
 logger = logging.getLogger()

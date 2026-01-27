@@ -17,11 +17,11 @@ import logging
 from typing import Dict, Any
 from datetime import datetime
 
-# Import from Lambda Layer
-from cognito_service import CognitoService
-from dynamodb_service import DynamoDBService
-from error_handler import ErrorHandler
-from models import ErrorCodes, AuthenticationSession
+# Import from shared modules
+from shared.cognito_service import CognitoService
+from shared.dynamodb_service import DynamoDBService
+from shared.error_handler import ErrorHandler
+from shared.models import ErrorCodes, AuthenticationSession
 
 # Configure logging
 logger = logging.getLogger()
