@@ -339,9 +339,7 @@ class FaceAuthStack(Stack):
             encryption=s3.BucketEncryption.S3_MANAGED,
             block_public_access=s3.BlockPublicAccess.BLOCK_ALL,
             removal_policy=RemovalPolicy.RETAIN,
-            versioned=True,  # Changed from 'versioning' to 'versioned'
-            website_index_document="index.html",
-            website_error_document="index.html"  # For SPA routing
+            versioned=True
         )
 
         # Origin Access Identity for CloudFront
@@ -350,8 +348,8 @@ class FaceAuthStack(Stack):
             comment="OAI for Face-Auth Frontend"
         )
 
-        # Grant CloudFront read access to S3 bucket
-        self.frontend_bucket.grant_read(oai)
+        # Grant CloudFront read access to S3 bucket via OAI
+        self.frontend_bucket.grant_read(oai.grant_principal)
 
         # CloudFront distribution with IP restriction
         # Create custom response headers policy
@@ -388,7 +386,7 @@ class FaceAuthStack(Stack):
             self, "FaceAuthFrontendDistribution",
             default_behavior=cloudfront.BehaviorOptions(
                 origin=origins.S3Origin(
-                    self.frontend_bucket,
+                    bucket=self.frontend_bucket,
                     origin_access_identity=oai
                 ),
                 viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
