@@ -32,7 +32,7 @@ Face-Auth IdP システムは、社員証ベースの信頼チェーンを基盤
 
 1. WHEN 従業員が登録を開始すると、THE Face_Auth_IdP_System SHALL OCR_Engineを使用して従業員身分証をキャプチャして処理する
 2. WHEN 従業員身分証がキャプチャされると、THE OCR_Engine SHALL DynamoDBのCard_Templateパターンを使用して従業員情報を抽出する
-3. WHEN OCR抽出が成功すると、THE AD_Connector SHALL 10秒以内にオンプレミスActive Directoryに対して従業員情報を確認する
+3. WHEN OCR抽出が成功すると、TNaHE AD_Connector SHALL 10秒以内にオンプレミスActive Directoryに対して従業員情報を確認する
 4. WHEN AD確認が成功すると、THE Face_Auth_IdP_System SHALL Liveness_Detectionを使用した顔キャプチャを進行する
 5. WHEN 信頼度 > 90%で顔キャプチャが完了すると、THE Face_Auth_IdP_System SHALL 200x200サムネイルを生成してS3 enroll/フォルダに保存する
 6. IF 従業員身分証形式がどのCard_Templateとも一致しない場合、THEN THE Face_Auth_IdP_System SHALL "社員証規格不一致"メッセージを返す
