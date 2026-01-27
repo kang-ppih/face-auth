@@ -447,6 +447,14 @@ class FaceAuthStack(Stack):
         Create Lambda functions for authentication workflows
         Requirements: 4.3, 4.4
         """
+        # Create Lambda Layer for shared code
+        shared_layer = lambda_.LayerVersion(
+            self, "SharedLayer",
+            code=lambda_.Code.from_asset("lambda/shared"),
+            compatible_runtimes=[lambda_.Runtime.PYTHON_3_9],
+            description="Shared utilities and services for Face-Auth Lambda functions"
+        )
+        
         # Common Lambda configuration
         lambda_config = {
             "runtime": lambda_.Runtime.PYTHON_3_9,
@@ -456,6 +464,7 @@ class FaceAuthStack(Stack):
             "vpc": self.vpc,
             "vpc_subnets": ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
             "security_groups": [self.lambda_security_group, self.ad_security_group],
+            "layers": [shared_layer],  # Add shared layer to all Lambda functions
             "environment": {
                 "FACE_AUTH_BUCKET": self.face_auth_bucket.bucket_name,
                 "CARD_TEMPLATES_TABLE": self.card_templates_table.table_name,

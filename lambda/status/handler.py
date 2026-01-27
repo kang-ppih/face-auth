@@ -13,14 +13,11 @@ Requirements: 2.5, 10.7
 import json
 import boto3
 import os
-import sys
 import logging
 from typing import Dict, Any
 from datetime import datetime
 
-# Add shared directory to path for imports
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
-
+# Import from Lambda Layer
 from cognito_service import CognitoService
 from dynamodb_service import DynamoDBService
 from error_handler import ErrorHandler
