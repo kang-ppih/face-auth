@@ -683,7 +683,16 @@ class FaceAuthStack(Stack):
             self, "EnrollmentFunction",
             function_name="FaceAuth-Enrollment",
             description="Handle employee enrollment with ID card OCR and face registration",
-            code=lambda_.Code.from_asset("lambda/enrollment"),
+            code=lambda_.Code.from_asset(
+                "lambda/enrollment",
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             handler="handler.handle_enrollment",
             **lambda_config
         )
@@ -693,7 +702,16 @@ class FaceAuthStack(Stack):
             self, "FaceLoginFunction",
             function_name="FaceAuth-FaceLogin",
             description="Handle face-based login with 1:N matching",
-            code=lambda_.Code.from_asset("lambda/face_login"),
+            code=lambda_.Code.from_asset(
+                "lambda/face_login",
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             handler="handler.handle_face_login",
             **lambda_config
         )
@@ -703,7 +721,16 @@ class FaceAuthStack(Stack):
             self, "EmergencyAuthFunction", 
             function_name="FaceAuth-EmergencyAuth",
             description="Handle emergency authentication with ID card + AD password",
-            code=lambda_.Code.from_asset("lambda/emergency_auth"),
+            code=lambda_.Code.from_asset(
+                "lambda/emergency_auth",
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             handler="handler.handle_emergency_auth",
             **lambda_config
         )
@@ -713,7 +740,16 @@ class FaceAuthStack(Stack):
             self, "ReEnrollmentFunction",
             function_name="FaceAuth-ReEnrollment", 
             description="Handle employee face data re-enrollment",
-            code=lambda_.Code.from_asset("lambda/re_enrollment"),
+            code=lambda_.Code.from_asset(
+                "lambda/re_enrollment",
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             handler="handler.handle_re_enrollment",
             **lambda_config
         )
@@ -723,7 +759,16 @@ class FaceAuthStack(Stack):
             self, "StatusFunction",
             function_name="FaceAuth-Status",
             description="Check authentication status and session validity",
-            code=lambda_.Code.from_asset("lambda/status"),
+            code=lambda_.Code.from_asset(
+                "lambda/status",
+                bundling={
+                    "image": lambda_.Runtime.PYTHON_3_9.bundling_image,
+                    "command": [
+                        "bash", "-c",
+                        "pip install -r requirements.txt -t /asset-output && cp -au . /asset-output"
+                    ]
+                }
+            ),
             handler="handler.handle_status",
             **lambda_config
         )
