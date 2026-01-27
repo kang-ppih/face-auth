@@ -121,17 +121,90 @@ GET  /auth/status      # 認証ステータス確認
 
 ### 環境変数
 
-主要な設定は`config.py`ファイルで管理されます：
+システムの動作に必要な環境変数は`.env.sample`ファイルを参考に設定してください。
 
-```python
-FACE_AUTH_CONFIG = {
-    'LIVENESS_CONFIDENCE_THRESHOLD': 90.0,
-    'FACE_MATCH_CONFIDENCE_THRESHOLD': 95.0,
-    'AD_CONNECTION_TIMEOUT': 10,
-    'LAMBDA_TIMEOUT': 15,
-    # ... その他の設定
-}
+#### セットアップ手順
+
+1. **サンプルファイルをコピー**
+   ```bash
+   cp .env.sample .env
+   ```
+
+2. **必要な値を設定**
+   
+   `.env`ファイルを編集して、以下の値を設定してください：
+
+#### 必須環境変数
+
+| 環境変数 | 説明 | デフォルト値 | 設定タイミング |
+|---------|------|------------|--------------|
+| `AWS_REGION` | AWSリージョン | `ap-northeast-1` | デプロイ前 |
+| `CDK_DEFAULT_ACCOUNT` | AWSアカウントID | - | デプロイ前 |
+| `CDK_DEFAULT_REGION` | CDKデプロイリージョン | `ap-northeast-1` | デプロイ前 |
+
+#### Lambda関数環境変数（CDKが自動設定）
+
+以下の環境変数はCDKスタックによって自動的にLambda関数に設定されます。ローカルテスト時のみ手動設定が必要です。
+
+| 環境変数 | 説明 | 例 |
+|---------|------|-----|
+| `FACE_AUTH_BUCKET` | S3バケット名 | `face-auth-images-123456789012-ap-northeast-1` |
+| `CARD_TEMPLATES_TABLE` | カードテンプレートテーブル名 | `FaceAuth-CardTemplates` |
+| `EMPLOYEE_FACES_TABLE` | 従業員顔データテーブル名 | `FaceAuth-EmployeeFaces` |
+| `AUTH_SESSIONS_TABLE` | 認証セッションテーブル名 | `FaceAuth-AuthSessions` |
+| `COGNITO_USER_POOL_ID` | Cognito User Pool ID | `ap-northeast-1_XXXXXXXXX` |
+| `COGNITO_CLIENT_ID` | Cognito Client ID | デプロイ後に取得 |
+| `REKOGNITION_COLLECTION_ID` | RekognitionコレクションID | `face-auth-employees` |
+| `SESSION_TIMEOUT_HOURS` | セッションタイムアウト（時間） | `8` |
+
+#### オプション環境変数
+
+| 環境変数 | 説明 | デフォルト値 |
+|---------|------|------------|
+| `ALLOWED_IPS` | 許可するIPアドレス範囲（CIDR形式、カンマ区切り） | 空（全IP許可） |
+
+#### 環境変数の取得方法
+
+デプロイ後、以下のコマンドで必要な値を取得できます：
+
+```bash
+# Cognito User Pool IDの取得
+aws cloudformation describe-stacks \
+  --stack-name FaceAuthStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolId`].OutputValue' \
+  --output text
+
+# Cognito Client IDの取得
+aws cloudformation describe-stacks \
+  --stack-name FaceAuthStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`UserPoolClientId`].OutputValue' \
+  --output text
+
+# S3バケット名の取得
+aws cloudformation describe-stacks \
+  --stack-name FaceAuthStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`S3BucketName`].OutputValue' \
+  --output text
 ```
+
+#### セキュリティに関する注意事項
+
+⚠️ **重要**: 
+- `.env`ファイルは`.gitignore`に含まれており、Gitにコミットされません
+- 機密情報（パスワード、APIキーなど）は絶対にGitにコミットしないでください
+- 本番環境では、AWS Secrets ManagerまたはSystems Manager Parameter Storeの使用を推奨します
+
+#### 環境別設定
+
+環境ごとに異なる設定ファイルを作成できます：
+
+```bash
+.env.development   # 開発環境
+.env.staging       # ステージング環境
+.env.production    # 本番環境
+```
+
+詳細は`.env.sample`ファイルのコメントを参照してください。
 
 ### Active Directory接続
 
