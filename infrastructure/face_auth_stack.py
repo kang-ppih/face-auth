@@ -659,7 +659,7 @@ class FaceAuthStack(Stack):
         # Common Lambda configuration
         lambda_config = {
             "runtime": lambda_.Runtime.PYTHON_3_9,
-            "timeout": Duration.seconds(15),  # 15-second timeout as per requirements
+            "timeout": Duration.seconds(30),  # 30-second timeout for Textract OCR processing
             "memory_size": 512,
             "role": self.lambda_execution_role,
             "vpc": self.vpc,

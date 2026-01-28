@@ -13,11 +13,8 @@ import boto3
 import os
 import sys
 from datetime import datetime
-
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from lambda.shared.models import CardTemplate
+import json
+from decimal import Decimal
 
 
 def register_card_template():
@@ -44,94 +41,68 @@ def register_card_template():
     
     # Define the card template based on sample/社員証サンプル.png
     # This template matches the specific format of the sample ID card
-    card_template = CardTemplate(
-        pattern_id="STANDARD_EMPLOYEE_CARD_V1",
-        description="標準社員証フォーマット（sample/社員証サンプル.png準拠）",
+    template_data = {
+        'pattern_id': "STANDARD_EMPLOYEE_CARD_V1",
+        'card_type': "STANDARD",
+        'description': "標準社員証フォーマット（sample/社員証サンプル.png準拠）",
         
-        # Textract queries to extract information from the ID card
-        # These queries are optimized for the specific layout of the sample card
-        textract_queries=[
+        # Fields to extract with Textract queries
+        'fields': [
             {
-                "text": "社員番号",
-                "alias": "EMPLOYEE_ID",
-                "pages": ["1"]
+                'field_name': 'employee_id',
+                'query_phrase': '社員番号は何ですか？',
+                'required': True
             },
             {
-                "text": "氏名",
-                "alias": "EMPLOYEE_NAME", 
-                "pages": ["1"]
+                'field_name': 'employee_name',
+                'query_phrase': '氏名は何ですか？',
+                'required': True
             },
             {
-                "text": "所属",
-                "alias": "DEPARTMENT",
-                "pages": ["1"]
+                'field_name': 'department',
+                'query_phrase': '所属は何ですか？',
+                'required': False
             }
         ],
         
         # Bounding box for employee number location (normalized coordinates 0-1)
-        # These coordinates should be adjusted based on the actual position in the sample card
-        # Format: {"left": x, "top": y, "width": w, "height": h}
-        # Example values - should be calibrated with actual sample card
-        employee_number_bbox={
-            "left": 0.15,    # 15% from left edge
-            "top": 0.30,     # 30% from top edge
-            "width": 0.35,   # 35% width
-            "height": 0.10   # 10% height
-        },
-        
-        # Logo detection area (optional, for additional validation)
-        # Can be used to verify the card is authentic
-        logo_bbox={
-            "left": 0.05,
-            "top": 0.05,
-            "width": 0.20,
-            "height": 0.15
+        'employee_number_bbox': {
+            "left": Decimal('0.15'),    # 15% from left edge
+            "top": Decimal('0.30'),     # 30% from top edge
+            "width": Decimal('0.35'),   # 35% width
+            "height": Decimal('0.10')   # 10% height
         },
         
         # Confidence threshold for matching this template
-        confidence_threshold=0.85,
+        'confidence_threshold': Decimal('0.85'),
         
         # Template is active and should be used for matching
-        is_active=True,
+        'is_active': True,
         
         # Metadata
-        created_at=datetime.now().isoformat(),
-        updated_at=datetime.now().isoformat(),
-        version="1.0"
-    )
-    
-    # Convert to DynamoDB item
-    item = {
-        'pattern_id': card_template.pattern_id,
-        'description': card_template.description,
-        'textract_queries': card_template.textract_queries,
-        'employee_number_bbox': card_template.employee_number_bbox,
-        'logo_bbox': card_template.logo_bbox,
-        'confidence_threshold': card_template.confidence_threshold,
-        'is_active': card_template.is_active,
-        'created_at': card_template.created_at,
-        'updated_at': card_template.updated_at,
-        'version': card_template.version
+        'created_at': datetime.now().isoformat(),
+        'updated_at': datetime.now().isoformat(),
+        'version': "1.0"
     }
     
     try:
         # Put item to DynamoDB
-        response = table.put_item(Item=item)
+        response = table.put_item(Item=template_data)
         
         print("\n✅ Card template registered successfully!")
         print(f"\nTemplate Details:")
-        print(f"  Pattern ID: {card_template.pattern_id}")
-        print(f"  Description: {card_template.description}")
-        print(f"  Version: {card_template.version}")
-        print(f"  Active: {card_template.is_active}")
-        print(f"\nTextract Queries:")
-        for query in card_template.textract_queries:
-            print(f"  - {query['text']} (alias: {query['alias']})")
+        print(f"  Pattern ID: {template_data['pattern_id']}")
+        print(f"  Description: {template_data['description']}")
+        print(f"  Version: {template_data['version']}")
+        print(f"  Active: {template_data['is_active']}")
+        print(f"\nFields to Extract:")
+        for field in template_data['fields']:
+            print(f"  - {field['field_name']}: {field['query_phrase']} (required: {field['required']})")
         print(f"\nEmployee Number BBox:")
-        print(f"  Left: {card_template.employee_number_bbox['left']}")
-        print(f"  Top: {card_template.employee_number_bbox['top']}")
-        print(f"  Width: {card_template.employee_number_bbox['width']}")
-        print(f"  Height: {card_template.employee_number_bbox['height']}")
+        print(f"  Left: {template_data['employee_number_bbox']['left']}")
+        print(f"  Top: {template_data['employee_number_bbox']['top']}")
+        print(f"  Width: {template_data['employee_number_bbox']['width']}")
+        print(f"  Height: {template_data['employee_number_bbox']['height']}")
         
         return True
         

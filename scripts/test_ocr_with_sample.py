@@ -81,9 +81,9 @@ def test_ocr_with_sample_card():
     print("-"*80)
     
     try:
-        employee_info, error = ocr_service.extract_employee_info(
+        employee_info, error = ocr_service.extract_id_card_info(
             image_bytes=image_bytes,
-            db_service=db_service
+            request_id="test_ocr"
         )
         
         if error:

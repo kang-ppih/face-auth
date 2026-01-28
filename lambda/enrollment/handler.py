@@ -119,6 +119,9 @@ def handle_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         db_service = DynamoDBService(region_name=region)
         db_service.initialize_tables(card_templates_table, employee_faces_table, auth_sessions_table)
         
+        # Initialize OCR service with DynamoDB tables
+        ocr_service.initialize_db_service(card_templates_table, employee_faces_table, auth_sessions_table)
+        
         # Step 1: Process ID card with OCR
         logger.info("Step 1: Processing ID card with OCR")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
@@ -126,12 +129,12 @@ def handle_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                                  "処理時間が超過しました",
                                  "Timeout before OCR processing", request_id)
         
-        employee_info, ocr_error = ocr_service.extract_employee_info(id_card_image, db_service)
+        employee_info, ocr_error = ocr_service.extract_id_card_info(id_card_image, request_id)
         if ocr_error or not employee_info:
             logger.warning(f"OCR processing failed: {ocr_error}")
             error_response = error_handler.handle_error(
                 ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                {'request_id': request_id, 'detail': ocr_error}
+                {'request_id': request_id, 'detail': str(ocr_error)}
             )
             return _error_response(400, error_response.error_code,
                                  error_response.user_message,

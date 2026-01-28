@@ -109,6 +109,9 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
         db_service = DynamoDBService(region_name=region)
         db_service.initialize_tables(card_templates_table, employee_faces_table, auth_sessions_table)
         
+        # Initialize OCR service with DynamoDB tables
+        ocr_service.initialize_db_service(card_templates_table, employee_faces_table, auth_sessions_table)
+        
         # Step 1: Check rate limiting
         logger.info(f"Step 1: Checking rate limiting for IP {ip_address}")
         rate_limit_key = f"rate_limit_{ip_address}" if ip_address else f"rate_limit_{request_id}"
@@ -158,7 +161,7 @@ def handle_emergency_auth(event: Dict[str, Any], context: Any) -> Dict[str, Any]
                                  "処理時間が超過しました",
                                  "Timeout before OCR processing", request_id)
         
-        employee_info, ocr_error = ocr_service.extract_employee_info(id_card_image, db_service)
+        employee_info, ocr_error = ocr_service.extract_id_card_info(id_card_image, request_id)
         if ocr_error or not employee_info:
             logger.warning(f"OCR processing failed: {ocr_error}")
             _increment_rate_limit(rate_limit_table, rate_limit_key, attempt_count + 1, window_start)
