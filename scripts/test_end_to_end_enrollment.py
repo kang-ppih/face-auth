@@ -72,7 +72,7 @@ class EndToEndEnrollmentTest:
                 image_bytes = f.read()
             return base64.b64encode(image_bytes).decode('utf-8')
         except Exception as e:
-            print(f"❌ Error loading image {image_path}: {str(e)}")
+            print(f"[ERROR] Error loading image {image_path}: {str(e)}")
             return None
     
     def test_step_1_prepare_images(self):
@@ -87,23 +87,23 @@ class EndToEndEnrollmentTest:
         
         # If face sample doesn't exist, use ID card as placeholder
         if not os.path.exists(face_image_path):
-            print(f"⚠️  Face sample not found, using ID card as placeholder")
+            print(f"WARNING: Face sample not found, using ID card as placeholder")
             face_image_path = id_card_path
         
         if not os.path.exists(id_card_path):
-            print(f"❌ ID card sample not found: {id_card_path}")
+            print(f"[ERROR] ID card sample not found: {id_card_path}")
             return False, None, None
         
-        print(f"✅ Loading ID card: {id_card_path}")
+        print(f"[OK] Loading ID card: {id_card_path}")
         id_card_b64 = self.load_image_as_base64(id_card_path)
         
-        print(f"✅ Loading face image: {face_image_path}")
+        print(f"[OK] Loading face image: {face_image_path}")
         face_image_b64 = self.load_image_as_base64(face_image_path)
         
         if not id_card_b64 or not face_image_b64:
             return False, None, None
         
-        print(f"✅ Images loaded successfully")
+        print(f"[OK] Images loaded successfully")
         print(f"   ID card size: {len(id_card_b64)} bytes (base64)")
         print(f"   Face image size: {len(face_image_b64)} bytes (base64)")
         
@@ -124,7 +124,7 @@ class EndToEndEnrollmentTest:
             "Content-Type": "application/json"
         }
         
-        print(f"📤 Sending POST request to: {self.enrollment_url}")
+        print(f"[SEND] Sending POST request to: {self.enrollment_url}")
         print(f"   Payload size: {len(json.dumps(payload))} bytes")
         
         try:
@@ -135,7 +135,7 @@ class EndToEndEnrollmentTest:
                 timeout=30
             )
             
-            print(f"\n📥 Response received:")
+            print(f"\n[RECV] Response received:")
             print(f"   Status Code: {response.status_code}")
             print(f"   Headers: {dict(response.headers)}")
             
@@ -149,14 +149,14 @@ class EndToEndEnrollmentTest:
                 response_data = {}
             
             if response.status_code == 200:
-                print(f"\n✅ Enrollment request successful!")
+                print(f"\n[OK] Enrollment request successful!")
                 return True, response_data
             else:
-                print(f"\n❌ Enrollment request failed with status {response.status_code}")
+                print(f"\n[ERROR] Enrollment request failed with status {response.status_code}")
                 return False, response_data
                 
         except Exception as e:
-            print(f"\n❌ Error sending request: {str(e)}")
+            print(f"\n[ERROR] Error sending request: {str(e)}")
             return False, {}
     
     def test_step_3_verify_s3_storage(self, employee_id: str):
@@ -166,13 +166,13 @@ class EndToEndEnrollmentTest:
         print("-"*80)
         
         # Wait a bit for async processing
-        print("⏳ Waiting 3 seconds for S3 upload...")
+        print("[WAIT] Waiting 3 seconds for S3 upload...")
         time.sleep(3)
         
         # Check for enrollment images
         s3_prefix = f"enroll/{employee_id}/"
         
-        print(f"🔍 Checking S3 bucket: {self.s3_bucket}")
+        print(f"[CHECK] Checking S3 bucket: {self.s3_bucket}")
         print(f"   Prefix: {s3_prefix}")
         
         try:
@@ -184,15 +184,15 @@ class EndToEndEnrollmentTest:
             objects = response.get('Contents', [])
             
             if objects:
-                print(f"\n✅ Found {len(objects)} object(s) in S3:")
+                print(f"\n[OK] Found {len(objects)} object(s) in S3:")
                 for obj in objects:
                     print(f"   - {obj['Key']} ({obj['Size']} bytes)")
                 return True
             else:
-                print(f"\n❌ No objects found in S3 with prefix: {s3_prefix}")
+                print(f"\n[ERROR] No objects found in S3 with prefix: {s3_prefix}")
                 
                 # List all objects to debug
-                print(f"\n🔍 Listing all objects in bucket (first 10):")
+                print(f"\n[CHECK] Listing all objects in bucket (first 10):")
                 all_response = self.s3_client.list_objects_v2(
                     Bucket=self.s3_bucket,
                     MaxKeys=10
@@ -207,7 +207,7 @@ class EndToEndEnrollmentTest:
                 return False
                 
         except Exception as e:
-            print(f"\n❌ Error checking S3: {str(e)}")
+            print(f"\n[ERROR] Error checking S3: {str(e)}")
             return False
     
     def test_step_4_verify_dynamodb_record(self, employee_id: str):
@@ -216,7 +216,7 @@ class EndToEndEnrollmentTest:
         print("STEP 4: Verifying DynamoDB Record")
         print("-"*80)
         
-        print(f"🔍 Checking DynamoDB table: {self.dynamodb_table}")
+        print(f"[CHECK] Checking DynamoDB table: {self.dynamodb_table}")
         print(f"   Employee ID: {employee_id}")
         
         try:
@@ -230,17 +230,17 @@ class EndToEndEnrollmentTest:
             item = response.get('Item')
             
             if item:
-                print(f"\n✅ Employee record found in DynamoDB:")
+                print(f"\n[OK] Employee record found in DynamoDB:")
                 print(f"   Employee ID: {item.get('employee_id', {}).get('S')}")
                 print(f"   Name: {item.get('name', {}).get('S')}")
                 print(f"   Face ID: {item.get('face_id', {}).get('S')}")
                 print(f"   Enrolled At: {item.get('enrolled_at', {}).get('S')}")
                 return True, item
             else:
-                print(f"\n❌ No record found in DynamoDB for employee: {employee_id}")
+                print(f"\n[ERROR] No record found in DynamoDB for employee: {employee_id}")
                 
                 # Scan table to see what's there
-                print(f"\n🔍 Scanning table (first 5 records):")
+                print(f"\n[CHECK] Scanning table (first 5 records):")
                 scan_response = self.dynamodb_client.scan(
                     TableName=self.dynamodb_table,
                     Limit=5
@@ -256,7 +256,7 @@ class EndToEndEnrollmentTest:
                 return False, None
                 
         except Exception as e:
-            print(f"\n❌ Error checking DynamoDB: {str(e)}")
+            print(f"\n[ERROR] Error checking DynamoDB: {str(e)}")
             return False, None
     
     def test_step_5_verify_rekognition_face(self, face_id: str):
@@ -266,10 +266,10 @@ class EndToEndEnrollmentTest:
         print("-"*80)
         
         if not face_id:
-            print("⚠️  No face_id provided, skipping Rekognition check")
+            print("[WARN]  No face_id provided, skipping Rekognition check")
             return False
         
-        print(f"🔍 Checking Rekognition collection: {self.rekognition_collection}")
+        print(f"[CHECK] Checking Rekognition collection: {self.rekognition_collection}")
         print(f"   Face ID: {face_id}")
         
         try:
@@ -284,11 +284,11 @@ class EndToEndEnrollmentTest:
             face_found = any(face['FaceId'] == face_id for face in faces)
             
             if face_found:
-                print(f"\n✅ Face found in Rekognition collection!")
+                print(f"\n[OK] Face found in Rekognition collection!")
                 print(f"   Total faces in collection: {len(faces)}")
                 return True
             else:
-                print(f"\n❌ Face not found in Rekognition collection")
+                print(f"\n[ERROR] Face not found in Rekognition collection")
                 print(f"   Total faces in collection: {len(faces)}")
                 if faces:
                     print(f"   Sample face IDs:")
@@ -297,7 +297,7 @@ class EndToEndEnrollmentTest:
                 return False
                 
         except Exception as e:
-            print(f"\n❌ Error checking Rekognition: {str(e)}")
+            print(f"\n[ERROR] Error checking Rekognition: {str(e)}")
             return False
     
     def run_test(self):
@@ -357,7 +357,7 @@ class EndToEndEnrollmentTest:
         
         print(f"\nTest Results:")
         for step, success in results.items():
-            status = "✅ PASS" if success else "❌ FAIL"
+            status = "[OK] PASS" if success else "[ERROR] FAIL"
             print(f"  {step}: {status}")
         
         total_steps = len(results)
@@ -367,15 +367,15 @@ class EndToEndEnrollmentTest:
         print(f"Elapsed time: {elapsed_time:.2f} seconds")
         
         if all(results.values()):
-            print("\n🎉 END-TO-END TEST PASSED!")
+            print("\n[SUCCESS] END-TO-END TEST PASSED!")
             print("\nThe complete enrollment flow is working:")
-            print("  ✅ Images loaded successfully")
-            print("  ✅ API request successful")
-            print("  ✅ Images stored in S3")
-            print("  ✅ Employee record in DynamoDB")
-            print("  ✅ Face indexed in Rekognition")
+            print("  [OK] Images loaded successfully")
+            print("  [OK] API request successful")
+            print("  [OK] Images stored in S3")
+            print("  [OK] Employee record in DynamoDB")
+            print("  [OK] Face indexed in Rekognition")
         else:
-            print("\n⚠️  END-TO-END TEST FAILED")
+            print("\n[WARN]  END-TO-END TEST FAILED")
             print("\nPlease check the failed steps above for details.")
             print("\nCommon issues:")
             print("  - Lambda function errors (check CloudWatch Logs)")
@@ -394,7 +394,7 @@ if __name__ == "__main__":
     missing_vars = [var for var in required_env_vars if not os.environ.get(var)]
     
     if missing_vars:
-        print(f"❌ Missing required environment variables: {', '.join(missing_vars)}")
+        print(f"[ERROR] Missing required environment variables: {', '.join(missing_vars)}")
         sys.exit(1)
     
     # Run test
@@ -402,3 +402,4 @@ if __name__ == "__main__":
     success = test.run_test()
     
     sys.exit(0 if success else 1)
+

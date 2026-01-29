@@ -22,25 +22,25 @@ def test_service_connectivity(service_name, region='ap-northeast-1', profile='de
         # Try a simple operation
         if service_name == 'sts':
             response = client.get_caller_identity()
-            print(f"✅ {service_name.upper()} connection successful")
+            print(f"[OK] {service_name.upper()} connection successful")
             print(f"   Account: {response['Account']}")
             print(f"   User: {response['Arn']}")
             
         elif service_name == 's3':
             response = client.list_buckets()
-            print(f"✅ {service_name.upper()} connection successful")
+            print(f"[OK] {service_name.upper()} connection successful")
             print(f"   Buckets found: {len(response['Buckets'])}")
             
         elif service_name == 'dynamodb':
             response = client.list_tables(Limit=5)
-            print(f"✅ {service_name.upper()} connection successful")
+            print(f"[OK] {service_name.upper()} connection successful")
             print(f"   Tables found: {len(response['TableNames'])}")
             
         elif service_name == 'textract':
             # Textract doesn't have a simple list operation
             # Try to get service endpoint
             endpoint = client._endpoint
-            print(f"✅ {service_name.upper()} client created successfully")
+            print(f"[OK] {service_name.upper()} client created successfully")
             print(f"   Endpoint: {endpoint.host}")
             
             # Try a minimal operation (this will fail but tests connectivity)
@@ -49,12 +49,12 @@ def test_service_connectivity(service_name, region='ap-northeast-1', profile='de
             except ClientError as e:
                 error_code = e.response['Error']['Code']
                 if error_code in ['InvalidParameterException', 'InvalidS3ObjectException']:
-                    print(f"✅ {service_name.upper()} endpoint is reachable")
+                    print(f"[OK] {service_name.upper()} endpoint is reachable")
                     print(f"   (Got expected error: {error_code})")
                 else:
-                    print(f"⚠️  {service_name.upper()} returned error: {error_code}")
+                    print(f"[WARN]  {service_name.upper()} returned error: {error_code}")
             except EndpointConnectionError as e:
-                print(f"❌ {service_name.upper()} endpoint connection failed")
+                print(f"[ERROR] {service_name.upper()} endpoint connection failed")
                 print(f"   Error: {str(e)}")
                 return False
                 
@@ -62,15 +62,15 @@ def test_service_connectivity(service_name, region='ap-northeast-1', profile='de
             # Try to list collections
             try:
                 response = client.list_collections()
-                print(f"✅ {service_name.upper()} connection successful")
+                print(f"[OK] {service_name.upper()} connection successful")
                 print(f"   Collections found: {len(response['CollectionIds'])}")
             except ClientError as e:
-                print(f"⚠️  {service_name.upper()} error: {e.response['Error']['Code']}")
+                print(f"[WARN]  {service_name.upper()} error: {e.response['Error']['Code']}")
         
         return True
         
     except EndpointConnectionError as e:
-        print(f"❌ {service_name.upper()} endpoint connection failed")
+        print(f"[ERROR] {service_name.upper()} endpoint connection failed")
         print(f"   Error: {str(e)}")
         print(f"   This usually indicates:")
         print(f"   - Network connectivity issues")
@@ -80,12 +80,12 @@ def test_service_connectivity(service_name, region='ap-northeast-1', profile='de
         
     except ClientError as e:
         error_code = e.response['Error']['Code']
-        print(f"❌ {service_name.upper()} client error: {error_code}")
+        print(f"[ERROR] {service_name.upper()} client error: {error_code}")
         print(f"   Message: {e.response['Error']['Message']}")
         return False
         
     except Exception as e:
-        print(f"❌ {service_name.upper()} unexpected error: {str(e)}")
+        print(f"[ERROR] {service_name.upper()} unexpected error: {str(e)}")
         return False
 
 
@@ -158,7 +158,7 @@ def main():
     total_count = len(results)
     
     for service, success in results.items():
-        status = "✅ OK" if success else "❌ FAILED"
+        status = "[OK] OK" if success else "[ERROR] FAILED"
         print(f"  {service.upper()}: {status}")
     
     print()

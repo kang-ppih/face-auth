@@ -26,10 +26,10 @@ def test_ocr_via_lambda():
     
     # Check if sample image exists
     if not os.path.exists(SAMPLE_IMAGE_PATH):
-        print(f"❌ Sample image not found: {SAMPLE_IMAGE_PATH}")
+        print(f"[ERROR] Sample image not found: {SAMPLE_IMAGE_PATH}")
         return False
     
-    print(f"✅ Sample image found: {SAMPLE_IMAGE_PATH}")
+    print(f"[OK] Sample image found: {SAMPLE_IMAGE_PATH}")
     
     # Load and encode image
     try:
@@ -44,7 +44,7 @@ def test_ocr_via_lambda():
         print()
         
     except Exception as e:
-        print(f"❌ Error loading image: {str(e)}")
+        print(f"[ERROR] Error loading image: {str(e)}")
         return False
     
     # Create Lambda client
@@ -70,7 +70,7 @@ def test_ocr_via_lambda():
         }
     }
     
-    print(f"📤 Invoking Lambda function: {LAMBDA_FUNCTION_NAME}")
+    print(f"[SEND] Invoking Lambda function: {LAMBDA_FUNCTION_NAME}")
     print("   (This may take 10-30 seconds)")
     print()
     
@@ -86,11 +86,11 @@ def test_ocr_via_lambda():
         
         elapsed_time = time.time() - start_time
         
-        print(f"✅ Lambda invocation completed in {elapsed_time:.2f} seconds")
+        print(f"[OK] Lambda invocation completed in {elapsed_time:.2f} seconds")
         print()
         
     except Exception as e:
-        print(f"❌ Lambda invocation error: {str(e)}")
+        print(f"[ERROR] Lambda invocation error: {str(e)}")
         return False
     
     # Parse response
@@ -118,7 +118,7 @@ def test_ocr_via_lambda():
             print()
             
             if status_code == 200:
-                print("✅ Enrollment successful!")
+                print("[OK] Enrollment successful!")
                 print()
                 print("Extracted Information:")
                 if 'employee_id' in body:
@@ -134,7 +134,7 @@ def test_ocr_via_lambda():
                 error = body.get('error', 'UNKNOWN')
                 message = body.get('message', 'No message')
                 
-                print(f"⚠️  Enrollment failed with validation error")
+                print(f"[WARN]  Enrollment failed with validation error")
                 print(f"   Error: {error}")
                 print(f"   Message: {message}")
                 print()
@@ -148,21 +148,21 @@ def test_ocr_via_lambda():
                 return False
                 
             elif status_code == 408:
-                print("❌ Request timed out")
+                print("[ERROR] Request timed out")
                 print("   The OCR processing took too long (>30 seconds)")
                 print("   This usually means the image doesn't contain expected data")
                 return False
                 
             else:
-                print(f"❌ Unexpected status code: {status_code}")
+                print(f"[ERROR] Unexpected status code: {status_code}")
                 return False
         
         else:
-            print("❌ No body in response")
+            print("[ERROR] No body in response")
             return False
             
     except Exception as e:
-        print(f"❌ Error parsing response: {str(e)}")
+        print(f"[ERROR] Error parsing response: {str(e)}")
         import traceback
         traceback.print_exc()
         return False
@@ -203,12 +203,12 @@ def main():
     print()
     
     if success:
-        print("✅ OCR test via Lambda PASSED")
+        print("[OK] OCR test via Lambda PASSED")
         print()
         print("The sample image contains valid employee ID card data")
         print("and the OCR processing is working correctly.")
     else:
-        print("❌ OCR test via Lambda FAILED")
+        print("[ERROR] OCR test via Lambda FAILED")
         print()
         print("Possible reasons:")
         print("  1. Sample image does not contain employee ID card data")
