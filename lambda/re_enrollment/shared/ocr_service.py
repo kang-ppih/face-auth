@@ -1,16 +1,16 @@
 """
 Face-Auth IdP System - OCR Service
 
-This module provides OCR (Optical Character Recognition) capabilities using Amazon Textract
+This module provides OCR (Optical Character Recognition) capabilities using Amazon Rekognition
 for processing employee ID cards. The service supports:
-- Dynamic Textract Query configuration based on card templates
+- Text detection using Rekognition DetectText API
 - Employee information extraction and validation
-- Multiple card template support with logo-based identification
+- Multiple card template support
 - Error handling for format mismatches and extraction failures
-- Timeout handling for faster failure detection (20s read timeout)
+- Fast processing with Rekognition (typically <5 seconds)
 
 Requirements: 1.2, 7.1, 7.2, 7.6
-Version: 1.1.0 - Added timeout handling
+Version: 2.0.0 - Switched from Textract to Rekognition for faster processing
 """
 
 import boto3
@@ -33,10 +33,10 @@ logger = logging.getLogger(__name__)
 
 class OCRService:
     """
-    Amazon Textract-based OCR service for employee ID card processing
+    Amazon Rekognition-based OCR service for employee ID card processing
     
     This service handles:
-    - Dynamic Textract Query configuration based on card templates
+    - Text detection using Rekognition DetectText
     - Employee information extraction from ID cards
     - Card template matching and validation
     - Error handling for unsupported card formats
@@ -49,18 +49,18 @@ class OCRService:
         Args:
             region_name: AWS region name
         """
-        # Configure Textract client with timeout settings
+        # Configure Rekognition client with timeout settings
         from botocore.config import Config
         
         config = Config(
-            read_timeout=20,  # 20 seconds read timeout
+            read_timeout=10,  # 10 seconds read timeout
             connect_timeout=5,  # 5 seconds connect timeout
             retries={'max_attempts': 1}  # No retries for faster failure
         )
         
-        self.textract = boto3.client('textract', region_name=region_name, config=config)
+        self.rekognition = boto3.client('rekognition', region_name=region_name, config=config)
         self.db_service = DynamoDBService(region_name)
-        self.confidence_threshold = 0.8  # Minimum confidence for text extraction
+        self.confidence_threshold = 80.0  # Minimum confidence for text detection (80%)
         
     def initialize_db_service(self, card_templates_table_name: str, 
                             employee_faces_table_name: str,
@@ -141,7 +141,7 @@ class OCRService:
             logger.error(f"Error in OCR extraction: {str(e)}")
             return None, ErrorResponse(
                 error_code=ErrorCodes.GENERIC_ERROR,
-                user_message="밝은 곳에서 다시 시도해주세요",
+                user_message="明るい場所で再度お試しください",
                 system_reason=f"OCR service error: {str(e)}",
                 timestamp=datetime.now(),
                 request_id=request_id or "unknown"
@@ -150,7 +150,7 @@ class OCRService:
     def _extract_with_template(self, image_bytes: bytes, template: CardTemplate, 
                              request_id: str = None) -> Tuple[Optional[EmployeeInfo], Optional[ErrorResponse]]:
         """
-        Extract employee information using a specific card template
+        Extract employee information using Rekognition text detection
         
         Args:
             image_bytes: ID card image data
@@ -161,52 +161,37 @@ class OCRService:
             Tuple of (EmployeeInfo or None, ErrorResponse or None)
         """
         try:
-            # Build Textract queries from template
-            queries = self._build_queries_from_template(template)
-            
-            if not queries:
-                logger.warning(f"No queries built for template {template.pattern_id}")
-                return None, ErrorResponse(
-                    error_code=ErrorCodes.GENERIC_ERROR,
-                    user_message="밝은 곳에서 다시 시도해주세요",
-                    system_reason=f"Template {template.pattern_id} has no valid fields",
-                    timestamp=datetime.now(),
-                    request_id=request_id or "unknown"
-                )
-            
-            # Call Amazon Textract with dynamic queries
-            logger.info(f"Calling Textract with {len(queries)} queries for template {template.pattern_id}")
+            # Call Amazon Rekognition DetectText
+            logger.info(f"Calling Rekognition DetectText for template {template.pattern_id}")
             
             import time
             start_time = time.time()
             
             try:
-                response = self.textract.analyze_document(
-                    Document={'Bytes': image_bytes},
-                    FeatureTypes=['QUERIES'],
-                    QueriesConfig={'Queries': queries}
+                response = self.rekognition.detect_text(
+                    Image={'Bytes': image_bytes}
                 )
                 
                 elapsed_time = time.time() - start_time
-                logger.info(f"Textract completed in {elapsed_time:.2f} seconds")
+                logger.info(f"Rekognition completed in {elapsed_time:.2f} seconds")
                 
             except Exception as e:
                 elapsed_time = time.time() - start_time
-                logger.error(f"Textract failed after {elapsed_time:.2f} seconds: {str(e)}")
+                logger.error(f"Rekognition failed after {elapsed_time:.2f} seconds: {str(e)}")
                 
                 # Check if it's a timeout
                 if 'timeout' in str(e).lower() or 'timed out' in str(e).lower():
                     return None, ErrorResponse(
                         error_code=ErrorCodes.TIMEOUT_ERROR,
                         user_message="処理時間が超過しました",
-                        system_reason=f"Textract timeout after {elapsed_time:.2f}s",
+                        system_reason=f"Rekognition timeout after {elapsed_time:.2f}s",
                         timestamp=datetime.now(),
                         request_id=request_id or "unknown"
                     )
                 raise
             
-            # Parse Textract response
-            extracted_data = self._parse_textract_response(response, template)
+            # Parse Rekognition response
+            extracted_data = self._parse_rekognition_response(response, template)
             
             # Early exit if no data extracted
             if not extracted_data:
@@ -238,7 +223,7 @@ class OCRService:
                 logger.debug(f"Extracted data failed validation for template {template.pattern_id}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                    user_message="사원증 규격 불일치",
+                    user_message="社員証規格不一致",
                     system_reason=f"Template {template.pattern_id} data validation failed",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
@@ -252,7 +237,7 @@ class OCRService:
                 logger.warning(f"EmployeeInfo validation failed for template {template.pattern_id}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                    user_message="사원증 규격 불일치",
+                    user_message="社員証規格不一致",
                     system_reason=f"Employee info validation failed: {extracted_data}",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
@@ -261,24 +246,24 @@ class OCRService:
             return employee_info, None
             
         except Exception as e:
-            # Check if it's a Textract-specific exception
+            # Check if it's a Rekognition-specific exception
             error_code = getattr(e, 'response', {}).get('Error', {}).get('Code', '')
             
             if error_code == 'InvalidParameterException':
-                logger.error(f"Invalid Textract parameters for template {template.pattern_id}: {str(e)}")
+                logger.error(f"Invalid Rekognition parameters for template {template.pattern_id}: {str(e)}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.GENERIC_ERROR,
-                    user_message="밝은 곳에서 다시 시도해주세요",
-                    system_reason=f"Textract parameter error: {str(e)}",
+                    user_message="明るい場所で再度お試しください",
+                    system_reason=f"Rekognition parameter error: {str(e)}",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
                 )
-            elif error_code == 'UnsupportedDocumentException':
-                logger.error(f"Unsupported document format for template {template.pattern_id}: {str(e)}")
+            elif error_code == 'InvalidImageFormatException':
+                logger.error(f"Invalid image format for template {template.pattern_id}: {str(e)}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                    user_message="사원증 규격 불일치",
-                    system_reason=f"Unsupported document format: {str(e)}",
+                    user_message="社員証規格不一致",
+                    system_reason=f"Invalid image format: {str(e)}",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
                 )
@@ -286,89 +271,143 @@ class OCRService:
                 logger.error(f"Error extracting with template {template.pattern_id}: {str(e)}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.GENERIC_ERROR,
-                    user_message="밝은 곳에서 다시 시도해주세요",
+                    user_message="明るい場所で再度お試しください",
                     system_reason=f"Template extraction error: {str(e)}",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
                 )
     
-    def _build_queries_from_template(self, template: CardTemplate) -> List[Dict[str, str]]:
+    def _parse_rekognition_response(self, response: Dict[str, Any], 
+                                   template: CardTemplate) -> Dict[str, str]:
         """
-        Build Textract Query configuration from card template fields
+        Parse Rekognition DetectText response to extract employee information
         
         Args:
-            template: CardTemplate containing field definitions
-            
-        Returns:
-            List of Textract Query objects
-        """
-        queries = []
-        
-        for field in template.fields:
-            if 'field_name' in field and 'query_phrase' in field:
-                query = {
-                    'Text': field['query_phrase'],
-                    'Alias': field['field_name']
-                }
-                queries.append(query)
-                logger.debug(f"Built query: {field['field_name']} -> {field['query_phrase']}")
-            else:
-                logger.warning(f"Invalid field configuration in template {template.pattern_id}: {field}")
-        
-        return queries
-    
-    def _parse_textract_response(self, response: Dict[str, Any], 
-                               template: CardTemplate) -> Dict[str, str]:
-        """
-        Parse Textract analyze_document response to extract field values
-        
-        Args:
-            response: Textract analyze_document response
-            template: CardTemplate used for extraction
+            response: Rekognition detect_text response
+            template: CardTemplate used for extraction (for validation)
             
         Returns:
             Dictionary mapping field names to extracted values
         """
         extracted_data = {}
         
-        # Parse query results from Textract response
-        if 'Blocks' not in response:
-            logger.warning("No blocks found in Textract response")
+        # Parse text detections from Rekognition response
+        if 'TextDetections' not in response:
+            logger.warning("No text detections found in Rekognition response")
             return extracted_data
         
-        # Find query result blocks
-        query_blocks = {}
-        answer_blocks = {}
+        # Collect all detected text with confidence above threshold
+        detected_texts = []
+        for detection in response['TextDetections']:
+            if detection['Type'] == 'LINE':  # Use LINE type for better context
+                confidence = detection.get('Confidence', 0.0)
+                if confidence >= self.confidence_threshold:
+                    text = detection.get('DetectedText', '').strip()
+                    if text:
+                        detected_texts.append(text)
+                        logger.debug(f"Detected text: '{text}' (confidence: {confidence:.2f}%)")
         
-        for block in response['Blocks']:
-            if block['BlockType'] == 'QUERY':
-                query_blocks[block['Id']] = block
-            elif block['BlockType'] == 'QUERY_RESULT':
-                answer_blocks[block['Id']] = block
+        logger.info(f"Found {len(detected_texts)} text lines above confidence threshold")
         
-        # Match queries to answers and extract text
-        for query_id, query_block in query_blocks.items():
-            if 'Relationships' in query_block:
-                for relationship in query_block['Relationships']:
-                    if relationship['Type'] == 'ANSWER':
-                        for answer_id in relationship['Ids']:
-                            if answer_id in answer_blocks:
-                                answer_block = answer_blocks[answer_id]
-                                
-                                # Get the alias (field name) from query
-                                alias = query_block.get('Query', {}).get('Alias', '')
-                                
-                                # Extract text from answer block
-                                if answer_block.get('Confidence', 0) >= self.confidence_threshold * 100:
-                                    text = answer_block.get('Text', '').strip()
-                                    if text and alias:
-                                        extracted_data[alias] = text
-                                        logger.debug(f"Extracted {alias}: {text} (confidence: {answer_block.get('Confidence', 0)})")
-                                else:
-                                    logger.debug(f"Low confidence for {alias}: {answer_block.get('Confidence', 0)}")
+        # Extract employee ID (7 digits)
+        employee_id = self._extract_employee_id(detected_texts)
+        if employee_id:
+            extracted_data['employee_id'] = employee_id
+            logger.info(f"Extracted employee_id: {employee_id}")
         
-        logger.info(f"Extracted {len(extracted_data)} fields from Textract response")
+        # Extract employee name (Japanese characters)
+        employee_name = self._extract_japanese_name(detected_texts)
+        if employee_name:
+            extracted_data['employee_name'] = employee_name
+            logger.info(f"Extracted employee_name: {employee_name}")
+        
+        # Extract department (optional - Japanese text that's not the name)
+        department = self._extract_department(detected_texts, employee_name)
+        if department:
+            extracted_data['department'] = department
+            logger.info(f"Extracted department: {department}")
+        
+        logger.info(f"Extracted {len(extracted_data)} fields from Rekognition response")
         return extracted_data
+    
+    def _extract_employee_id(self, texts: List[str]) -> Optional[str]:
+        """
+        Extract 7-digit employee ID from detected texts
+        
+        Args:
+            texts: List of detected text strings
+            
+        Returns:
+            Employee ID string or None
+        """
+        # Pattern for 7 consecutive digits
+        pattern = re.compile(r'\b(\d{7})\b')
+        
+        for text in texts:
+            match = pattern.search(text)
+            if match:
+                employee_id = match.group(1)
+                logger.debug(f"Found employee ID: {employee_id}")
+                return employee_id
+        
+        logger.warning("No 7-digit employee ID found in detected texts")
+        return None
+    
+    def _extract_japanese_name(self, texts: List[str]) -> Optional[str]:
+        """
+        Extract Japanese name from detected texts
+        
+        Args:
+            texts: List of detected text strings
+            
+        Returns:
+            Japanese name string or None
+        """
+        # Pattern for Japanese characters (Hiragana, Katakana, Kanji)
+        # Names are typically 2-5 characters
+        pattern = re.compile(r'^[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{2,5}$')
+        
+        for text in texts:
+            # Clean the text (remove spaces and special characters)
+            cleaned_text = text.strip()
+            if pattern.match(cleaned_text):
+                logger.debug(f"Found Japanese name: {cleaned_text}")
+                return cleaned_text
+        
+        logger.warning("No Japanese name found in detected texts")
+        return None
+    
+    def _extract_department(self, texts: List[str], exclude_name: Optional[str]) -> Optional[str]:
+        """
+        Extract department name from detected texts
+        
+        Args:
+            texts: List of detected text strings
+            exclude_name: Employee name to exclude from department search
+            
+        Returns:
+            Department name string or None
+        """
+        # Pattern for Japanese text (longer than name, typically 3-10 characters)
+        pattern = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]{3,10}')
+        
+        for text in texts:
+            cleaned_text = text.strip()
+            
+            # Skip if it's the employee name
+            if exclude_name and cleaned_text == exclude_name:
+                continue
+            
+            # Skip if it contains digits (likely not a department name)
+            if re.search(r'\d', cleaned_text):
+                continue
+            
+            if pattern.match(cleaned_text):
+                logger.debug(f"Found potential department: {cleaned_text}")
+                return cleaned_text
+        
+        logger.debug("No department name found in detected texts")
+        return None
     
     def _create_employee_info(self, extracted_data: Dict[str, str], 
                             template: CardTemplate) -> EmployeeInfo:
@@ -470,7 +509,7 @@ class OCRService:
             if len(image_bytes) < 1000:  # 1KB minimum
                 return False, "Image too small"
             
-            # Check maximum size (5MB limit for Textract)
+            # Check maximum size (5MB limit for Rekognition)
             if len(image_bytes) > 5 * 1024 * 1024:
                 return False, "Image too large (max 5MB)"
             
@@ -515,8 +554,7 @@ class OCRService:
                 'template_id': template_id,
                 'employee_info': employee_info.to_dict() if employee_info else None,
                 'error': error.to_dict() if error else None,
-                'template_fields': len(template.fields),
-                'queries_built': len(self._build_queries_from_template(template))
+                'template_fields': len(template.fields)
             }
             
         except Exception as e:
@@ -562,33 +600,19 @@ def validate_employee_id_format(employee_id: str) -> bool:
     return False
 
 
-def validate_korean_name(name: str) -> bool:
+def validate_japanese_name(name: str) -> bool:
     """
-    Validate Korean name format
+    Validate Japanese name format
     
     Args:
         name: Name to validate
         
     Returns:
-        bool: True if name contains Korean characters and is valid length
+        bool: True if name contains Japanese characters and is valid length
     """
-    if len(name) < 2 or len(name) > 4:  # Korean names are typically 2-4 characters
+    if len(name) < 2 or len(name) > 5:  # Japanese names are typically 2-5 characters
         return False
     
-    # Check that all characters are Korean
-    korean_pattern = re.compile(r'^[가-힣]+$')
-    return bool(korean_pattern.match(name))
-
-
-def extract_confidence_from_textract_block(block: Dict[str, Any]) -> float:
-    """
-    Extract confidence score from Textract block
-    
-    Args:
-        block: Textract block dictionary
-        
-    Returns:
-        Confidence score as float between 0.0 and 1.0
-    """
-    confidence = block.get('Confidence', 0.0)
-    return confidence / 100.0 if confidence > 1.0 else confidence
+    # Check that all characters are Japanese (Hiragana, Katakana, or Kanji)
+    japanese_pattern = re.compile(r'^[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]+$')
+    return bool(japanese_pattern.match(name))
