@@ -7,8 +7,10 @@ for processing employee ID cards. The service supports:
 - Employee information extraction and validation
 - Multiple card template support with logo-based identification
 - Error handling for format mismatches and extraction failures
+- Timeout handling for faster failure detection (20s read timeout)
 
 Requirements: 1.2, 7.1, 7.2, 7.6
+Version: 1.1.0 - Added timeout handling
 """
 
 import boto3
@@ -47,7 +49,16 @@ class OCRService:
         Args:
             region_name: AWS region name
         """
-        self.textract = boto3.client('textract', region_name=region_name)
+        # Configure Textract client with timeout settings
+        from botocore.config import Config
+        
+        config = Config(
+            read_timeout=20,  # 20 seconds read timeout
+            connect_timeout=5,  # 5 seconds connect timeout
+            retries={'max_attempts': 1}  # No retries for faster failure
+        )
+        
+        self.textract = boto3.client('textract', region_name=region_name, config=config)
         self.db_service = DynamoDBService(region_name)
         self.confidence_threshold = 0.8  # Minimum confidence for text extraction
         
@@ -166,21 +177,58 @@ class OCRService:
             # Call Amazon Textract with dynamic queries
             logger.info(f"Calling Textract with {len(queries)} queries for template {template.pattern_id}")
             
-            response = self.textract.analyze_document(
-                Document={'Bytes': image_bytes},
-                FeatureTypes=['QUERIES'],
-                QueriesConfig={'Queries': queries}
-            )
+            import time
+            start_time = time.time()
+            
+            try:
+                response = self.textract.analyze_document(
+                    Document={'Bytes': image_bytes},
+                    FeatureTypes=['QUERIES'],
+                    QueriesConfig={'Queries': queries}
+                )
+                
+                elapsed_time = time.time() - start_time
+                logger.info(f"Textract completed in {elapsed_time:.2f} seconds")
+                
+            except Exception as e:
+                elapsed_time = time.time() - start_time
+                logger.error(f"Textract failed after {elapsed_time:.2f} seconds: {str(e)}")
+                
+                # Check if it's a timeout
+                if 'timeout' in str(e).lower() or 'timed out' in str(e).lower():
+                    return None, ErrorResponse(
+                        error_code=ErrorCodes.TIMEOUT_ERROR,
+                        user_message="処理時間が超過しました",
+                        system_reason=f"Textract timeout after {elapsed_time:.2f}s",
+                        timestamp=datetime.now(),
+                        request_id=request_id or "unknown"
+                    )
+                raise
             
             # Parse Textract response
             extracted_data = self._parse_textract_response(response, template)
             
+            # Early exit if no data extracted
             if not extracted_data:
-                logger.debug(f"No data extracted with template {template.pattern_id}")
+                logger.warning(f"No data extracted with template {template.pattern_id}")
                 return None, ErrorResponse(
                     error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
-                    user_message="사원증 규격 불일치",
+                    user_message="社員証規格不一致",
                     system_reason=f"Template {template.pattern_id} extracted no valid data",
+                    timestamp=datetime.now(),
+                    request_id=request_id or "unknown"
+                )
+            
+            # Check if required fields are present
+            required_fields = ['employee_id', 'employee_name']
+            missing_fields = [f for f in required_fields if f not in extracted_data or not extracted_data[f]]
+            
+            if missing_fields:
+                logger.warning(f"Missing required fields: {missing_fields}")
+                return None, ErrorResponse(
+                    error_code=ErrorCodes.ID_CARD_FORMAT_MISMATCH,
+                    user_message="社員証規格不一致",
+                    system_reason=f"Missing required fields: {', '.join(missing_fields)}",
                     timestamp=datetime.now(),
                     request_id=request_id or "unknown"
                 )

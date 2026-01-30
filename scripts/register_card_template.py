@@ -44,23 +44,24 @@ def register_card_template():
     template_data = {
         'pattern_id': "STANDARD_EMPLOYEE_CARD_V1",
         'card_type': "STANDARD",
-        'description': "標準社員証フォーマット（sample/社員証サンプル.png準拠）",
+        'description': "標準社員証フォーマット（7桁数値ベース）",
         
         # Fields to extract with Textract queries
+        # Using simpler queries to find 7-digit numbers directly
         'fields': [
             {
                 'field_name': 'employee_id',
-                'query_phrase': '社員番号は何ですか？',
+                'query_phrase': '7桁の数字は何ですか？',
                 'required': True
             },
             {
                 'field_name': 'employee_name',
-                'query_phrase': '氏名は何ですか？',
+                'query_phrase': '名前は何ですか？',
                 'required': True
             },
             {
                 'field_name': 'department',
-                'query_phrase': '所属は何ですか？',
+                'query_phrase': '部署は何ですか？',
                 'required': False
             }
         ],
