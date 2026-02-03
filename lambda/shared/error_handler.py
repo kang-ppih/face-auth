@@ -9,7 +9,7 @@ Requirements: 1.6, 1.7, 1.8, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6
 
 from datetime import datetime
 from typing import Dict, Any, Optional
-from shared.models import ErrorResponse, ErrorCodes
+from models import ErrorResponse, ErrorCodes
 
 
 class ErrorHandler:

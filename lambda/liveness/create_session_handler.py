@@ -16,7 +16,8 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'shared'))
 
 from liveness_service import LivenessService, LivenessServiceError
-from error_handler import handle_errors, ErrorResponse
+from error_handler import ErrorHandler
+from models import ErrorResponse
 from timeout_manager import TimeoutManager
 
 # Configure logging
@@ -24,7 +25,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-@handle_errors
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Livenessセッション作成ハンドラー
@@ -68,7 +68,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     # Parse request body
     try:
-        body = json.loads(event.get('body', '{}'))
+        body_str = event.get('body', '{}')
+        if body_str is None:
+            body_str = '{}'
+        body = json.loads(body_str)
     except json.JSONDecodeError as e:
         logger.error(f"Invalid JSON in request body: {e}")
         return ErrorResponse.bad_request("Invalid JSON in request body")
@@ -97,9 +100,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             confidence_threshold=confidence_threshold
         )
         
-        # Create session with timeout protection
-        with timeout_manager.operation("create_liveness_session", timeout_seconds=5):
-            result = liveness_service.create_session(employee_id)
+        # Create session
+        result = liveness_service.create_session(employee_id)
         
         logger.info(
             "Liveness session created successfully",

@@ -21,7 +21,8 @@ from liveness_service import (
     SessionNotFoundError,
     SessionExpiredError
 )
-from error_handler import handle_errors, ErrorResponse
+from error_handler import ErrorHandler
+from models import ErrorResponse
 from timeout_manager import TimeoutManager
 
 # Configure logging
@@ -29,7 +30,6 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
-@handle_errors
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Livenessセッション結果取得ハンドラー
@@ -92,9 +92,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     try:
         liveness_service = LivenessService()
         
-        # Get result with timeout protection
-        with timeout_manager.operation("get_liveness_result", timeout_seconds=8):
-            result = liveness_service.get_session_result(session_id)
+        # Get result
+        result = liveness_service.get_session_result(session_id)
         
         # If liveness verification failed, return 401
         if not result.is_live:
