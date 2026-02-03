@@ -1,10 +1,14 @@
 /**
  * Re-Enrollment Component
  * Handles face data update for existing employees
+ * 
+ * Flow: ID Card → Liveness → Face Capture → Submit
+ * Requirements: US-4, FR-4.4
  */
 
 import React, { useState } from 'react';
 import CameraCapture from './CameraCapture';
+import LivenessDetector from './LivenessDetector';
 import apiService from '../services/api';
 import { AuthResponse } from '../types';
 import './ReEnrollment.css';
@@ -14,16 +18,31 @@ interface ReEnrollmentProps {
   onError: (error: string) => void;
 }
 
-type ReEnrollmentStep = 'idcard' | 'face' | 'processing' | 'complete';
+type ReEnrollmentStep = 'idcard' | 'liveness' | 'face' | 'processing' | 'complete';
 
 const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
   const [step, setStep] = useState<ReEnrollmentStep>('idcard');
   const [idCardImage, setIdCardImage] = useState<string>('');
+  const [livenessSessionId, setLivenessSessionId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleIdCardCapture = (imageBase64: string) => {
     setIdCardImage(imageBase64);
+    // ID Card → Liveness
+    setStep('liveness');
+  };
+
+  const handleLivenessSuccess = (sessionId: string) => {
+    setLivenessSessionId(sessionId);
+    // Liveness → Face Capture
     setStep('face');
+  };
+
+  const handleLivenessError = (error: string) => {
+    setErrorMessage(`ライブネス検証エラー: ${error}`);
+    onError(error);
+    // Retry liveness
+    setStep('liveness');
   };
 
   const handleFaceCapture = async (imageBase64: string) => {
@@ -33,6 +52,7 @@ const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
       const response = await apiService.reEnrollment({
         idCardImage,
         faceImage: imageBase64,
+        livenessSessionId, // Add liveness session ID
       });
 
       if (response.success) {
@@ -42,11 +62,13 @@ const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
         setErrorMessage(response.error?.message || '再登録に失敗しました');
         onError(response.error?.message || '再登録に失敗しました');
         setStep('idcard');
+        setLivenessSessionId('');
       }
     } catch (error: any) {
       setErrorMessage('再登録処理中にエラーが発生しました');
       onError('再登録処理中にエラーが発生しました');
       setStep('idcard');
+      setLivenessSessionId('');
     }
   };
 
@@ -58,6 +80,7 @@ const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
   const resetReEnrollment = () => {
     setStep('idcard');
     setIdCardImage('');
+    setLivenessSessionId('');
     setErrorMessage('');
   };
 
@@ -85,6 +108,20 @@ const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
         </div>
       )}
 
+      {step === 'liveness' && (
+        <div className="re-enrollment-step">
+          <p className="step-instruction">ライブネス検証を実施してください</p>
+          <LivenessDetector
+            employeeId="RE_ENROLLMENT"
+            onSuccess={handleLivenessSuccess}
+            onError={handleLivenessError}
+          />
+          <button onClick={resetReEnrollment} className="back-button">
+            戻る
+          </button>
+        </div>
+      )}
+
       {step === 'face' && (
         <div className="re-enrollment-step">
           <p className="step-instruction">新しい顔データを登録してください</p>
@@ -93,7 +130,7 @@ const ReEnrollment: React.FC<ReEnrollmentProps> = ({ onSuccess, onError }) => {
             onError={handleCameraError}
             captureMode="face"
           />
-          <button onClick={resetReEnrollment} className="back-button">
+          <button onClick={() => setStep('liveness')} className="back-button">
             戻る
           </button>
         </div>

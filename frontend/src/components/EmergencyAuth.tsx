@@ -1,10 +1,14 @@
 /**
  * Emergency Authentication Component
  * Handles ID card + AD password authentication
+ * 
+ * Flow: ID Card → Password → Liveness → Submit
+ * Requirements: US-3, FR-4.3
  */
 
 import React, { useState } from 'react';
 import CameraCapture from './CameraCapture';
+import LivenessDetector from './LivenessDetector';
 import apiService from '../services/api';
 import { AuthResponse } from '../types';
 import './EmergencyAuth.css';
@@ -15,12 +19,13 @@ interface EmergencyAuthProps {
   onBack: () => void;
 }
 
-type EmergencyStep = 'idcard' | 'password' | 'processing';
+type EmergencyStep = 'idcard' | 'password' | 'liveness' | 'processing';
 
 const EmergencyAuth: React.FC<EmergencyAuthProps> = ({ onSuccess, onError, onBack }) => {
   const [step, setStep] = useState<EmergencyStep>('idcard');
   const [idCardImage, setIdCardImage] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const [livenessSessionId, setLivenessSessionId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   const handleIdCardCapture = (imageBase64: string) => {
@@ -36,12 +41,19 @@ const EmergencyAuth: React.FC<EmergencyAuthProps> = ({ onSuccess, onError, onBac
       return;
     }
 
+    // Password → Liveness
+    setStep('liveness');
+  };
+
+  const handleLivenessSuccess = async (sessionId: string) => {
+    setLivenessSessionId(sessionId);
     setStep('processing');
 
     try {
       const response = await apiService.emergencyAuth({
         idCardImage,
         password,
+        livenessSessionId: sessionId, // Add liveness session ID
       });
 
       if (response.success) {
@@ -51,13 +63,22 @@ const EmergencyAuth: React.FC<EmergencyAuthProps> = ({ onSuccess, onError, onBac
         onError(response.error?.message || '認証に失敗しました');
         setStep('idcard');
         setPassword('');
+        setLivenessSessionId('');
       }
     } catch (error: any) {
       setErrorMessage('認証処理中にエラーが発生しました');
       onError('認証処理中にエラーが発生しました');
       setStep('idcard');
       setPassword('');
+      setLivenessSessionId('');
     }
+  };
+
+  const handleLivenessError = (error: string) => {
+    setErrorMessage(`ライブネス検証エラー: ${error}`);
+    onError(error);
+    // Retry liveness
+    setStep('liveness');
   };
 
   const handleCameraError = (error: string) => {
@@ -69,6 +90,7 @@ const EmergencyAuth: React.FC<EmergencyAuthProps> = ({ onSuccess, onError, onBac
     setStep('idcard');
     setIdCardImage('');
     setPassword('');
+    setLivenessSessionId('');
     setErrorMessage('');
   };
 
@@ -116,10 +138,24 @@ const EmergencyAuth: React.FC<EmergencyAuthProps> = ({ onSuccess, onError, onBac
                 戻る
               </button>
               <button type="submit" className="submit-button">
-                ログイン
+                次へ
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {step === 'liveness' && (
+        <div className="emergency-step">
+          <p className="step-instruction">ライブネス検証を実施してください</p>
+          <LivenessDetector
+            employeeId="EMERGENCY"
+            onSuccess={handleLivenessSuccess}
+            onError={handleLivenessError}
+          />
+          <button onClick={() => setStep('password')} className="back-button">
+            戻る
+          </button>
         </div>
       )}
 
