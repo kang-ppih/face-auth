@@ -22,14 +22,14 @@ from PIL import Image
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lambda', 'shared'))
 
-from ocr_service import OCRService
-from face_recognition_service import FaceRecognitionService
-from cognito_service import CognitoService
-from thumbnail_processor import ThumbnailProcessor
-from error_handler import ErrorHandler
-from timeout_manager import TimeoutManager
-from dynamodb_service import DynamoDBService
-from models import (
+from shared.ocr_service import OCRService
+from shared.face_recognition_service import FaceRecognitionService
+from shared.cognito_service import CognitoService
+from shared.thumbnail_processor import ThumbnailProcessor
+from shared.error_handler import ErrorHandler
+from shared.timeout_manager import TimeoutManager
+from shared.dynamodb_service import DynamoDBService
+from shared.models import (
     EmployeeInfo, FaceData, AuthenticationSession, 
     CardTemplate, EmployeeFaceRecord, ErrorCodes
 )

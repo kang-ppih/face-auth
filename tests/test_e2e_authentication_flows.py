@@ -23,11 +23,10 @@ from PIL import Image
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'lambda'))
 
 # Import handlers
-from enrollment.handler import handler as enrollment_handler
-from face_login.handler import handler as face_login_handler
-from re_enrollment.handler import handler as re_enrollment_handler
-from emergency_auth.handler import handler as emergency_auth_handler
-from status.handler import handler as status_handler
+from enrollment.handler import handle_enrollment as enrollment_handler
+from face_login.handler import handle_face_login as face_login_handler
+from re_enrollment.handler import handle_re_enrollment as re_enrollment_handler
+from emergency_auth.handler import handle_emergency_auth as emergency_auth_handler
 
 
 class TestEndToEndAuthenticationFlows:

@@ -25,9 +25,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lambda'))
 from shared.ocr_service import (
     OCRService,
     create_ocr_service,
-    validate_employee_id_format,
-    validate_korean_name,
-    extract_confidence_from_textract_block
+    validate_employee_id_format
 )
 from shared.models import (
     CardTemplate,
