@@ -28,6 +28,7 @@ from shared.thumbnail_processor import ThumbnailProcessor
 from shared.error_handler import ErrorHandler
 from shared.timeout_manager import TimeoutManager
 from shared.dynamodb_service import DynamoDBService
+from shared.liveness_service import LivenessService, SessionNotFoundError, SessionExpiredError
 from shared.models import EmployeeFaceRecord, FaceData, EmployeeInfo, ErrorCodes
 
 # Configure logging
@@ -83,12 +84,19 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Extract and validate request data
         id_card_image_b64 = body.get('id_card_image')
         face_image_b64 = body.get('face_image')
+        liveness_session_id = body.get('liveness_session_id')  # New: Liveness session ID
         
         if not id_card_image_b64 or not face_image_b64:
             logger.warning("Missing required images in request")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
                                  "社員証と顔画像が必要です",
                                  "Missing id_card_image or face_image", request_id)
+        
+        if not liveness_session_id:
+            logger.warning("Missing liveness_session_id in request")
+            return _error_response(400, ErrorCodes.INVALID_REQUEST,
+                                 "Liveness検証が必要です",
+                                 "Missing liveness_session_id", request_id)
         
         # Decode base64 images
         try:
@@ -211,28 +219,81 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         old_s3_key = existing_record.thumbnail_s3_key
         logger.info(f"Found existing enrollment: face_id={old_face_id}, re_enrollment_count={existing_record.re_enrollment_count}")
         
-        # Step 4: Process new face image with liveness detection
-        logger.info("Step 4: Processing new face image with liveness detection")
+        # Step 4: Verify Liveness session (NEW - After identity verification)
+        logger.info(f"Step 4: Verifying Liveness session {liveness_session_id}")
+        if not timeout_manager.should_continue(buffer_seconds=3.0):
+            return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
+                                 "処理時間が超過しました",
+                                 "Timeout before liveness verification", request_id)
+        
+        try:
+            liveness_service = LivenessService()
+            liveness_result = liveness_service.get_session_result(liveness_session_id)
+            
+            if not liveness_result.is_live:
+                logger.warning(
+                    f"Liveness verification failed: confidence {liveness_result.confidence}, "
+                    f"threshold {liveness_service.confidence_threshold}"
+                )
+                error_response = error_handler.handle_error(
+                    ErrorCodes.LIVENESS_FAILED,
+                    {
+                        'request_id': request_id,
+                        'confidence': liveness_result.confidence,
+                        'threshold': liveness_service.confidence_threshold
+                    }
+                )
+                return _error_response(401, error_response.error_code,
+                                     error_response.user_message,
+                                     error_response.system_reason, request_id)
+            
+            logger.info(
+                f"Liveness verification passed: confidence {liveness_result.confidence}, "
+                f"session_id {liveness_session_id}"
+            )
+            
+        except SessionNotFoundError as e:
+            logger.warning(f"Liveness session not found: {liveness_session_id}")
+            return _error_response(404, ErrorCodes.INVALID_REQUEST,
+                                 "Liveness検証セッションが見つかりません",
+                                 f"Session not found: {str(e)}", request_id)
+        
+        except SessionExpiredError as e:
+            logger.warning(f"Liveness session expired: {liveness_session_id}")
+            return _error_response(410, ErrorCodes.TIMEOUT_ERROR,
+                                 "Liveness検証セッションが期限切れです",
+                                 f"Session expired: {str(e)}", request_id)
+        
+        except Exception as e:
+            logger.error(f"Liveness verification error: {str(e)}", exc_info=True)
+            return _error_response(500, ErrorCodes.GENERIC_ERROR,
+                                 "Liveness検証に失敗しました",
+                                 f"Liveness verification error: {str(e)}", request_id)
+        
+        # Step 5: Process new face image (removed old liveness detection)
+        logger.info("Step 5: Processing new face image")
         if not timeout_manager.should_continue(buffer_seconds=3.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
                                  "処理時間が超過しました",
                                  "Timeout before face processing", request_id)
         
-        liveness_result = face_service.detect_liveness(face_image)
-        if not liveness_result['is_live']:
-            logger.warning(f"Liveness detection failed: confidence {liveness_result.get('confidence', 0)}")
+        # Detect face for bounding box and landmarks (no liveness check)
+        face_details = face_service.detect_faces(face_image)
+        if not face_details:
+            logger.warning("No face detected in image")
             error_response = error_handler.handle_error(
-                ErrorCodes.LIVENESS_FAILED,
-                {'request_id': request_id, 'confidence': liveness_result.get('confidence')}
+                ErrorCodes.FACE_NOT_DETECTED,
+                {'request_id': request_id}
             )
             return _error_response(400, error_response.error_code,
                                  error_response.user_message,
                                  error_response.system_reason, request_id)
         
-        logger.info(f"Liveness detection passed with confidence {liveness_result['confidence']}")
+        face_detail = face_details[0]
+        logger.info(f"Face detected with confidence {face_detail.get('Confidence', 0)}")
         
-        # Step 5: Delete old face from Rekognition collection
-        logger.info(f"Step 5: Deleting old face {old_face_id} from Rekognition collection")
+        # Step 6: Delete old face from Rekognition collection
+        logger.info(f"Step 6: Deleting old face {old_face_id} from Rekognition collection")
         try:
             face_service.delete_face(old_face_id)
             logger.info(f"Successfully deleted old face {old_face_id}")
@@ -240,12 +301,12 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             logger.warning(f"Failed to delete old face {old_face_id}: {str(e)}")
             # Continue anyway - we'll replace with new face
         
-        # Step 6: Generate new 200x200 thumbnail
-        logger.info("Step 6: Generating new thumbnail")
+        # Step 7: Generate new 200x200 thumbnail
+        logger.info("Step 7: Generating new thumbnail")
         thumbnail_bytes = thumbnail_processor.create_thumbnail(face_image)
         
-        # Step 7: Index new face in Rekognition collection
-        logger.info("Step 7: Indexing new face in Rekognition collection")
+        # Step 8: Index new face in Rekognition collection
+        logger.info("Step 8: Indexing new face in Rekognition collection")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             # Rollback: Try to restore old face if possible
             logger.error("Timeout before indexing new face - attempting rollback")
@@ -263,8 +324,8 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info(f"New face indexed with face_id: {new_face_id}")
         
-        # Step 8: Update S3 with new thumbnail (replace old one)
-        logger.info(f"Step 8: Updating thumbnail in S3 for employee {employee_info.employee_id}")
+        # Step 9: Update S3 with new thumbnail (replace old one)
+        logger.info(f"Step 9: Updating thumbnail in S3 for employee {employee_info.employee_id}")
         s3_key = f"enroll/{employee_info.employee_id}/face_thumbnail.jpg"
         
         s3_client = boto3.client('s3', region_name=region)
@@ -278,16 +339,16 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         logger.info(f"New thumbnail stored at s3://{bucket_name}/{s3_key}")
         
-        # Step 9: Update EmployeeFaceRecord in DynamoDB
-        logger.info("Step 9: Updating EmployeeFaceRecord in DynamoDB")
+        # Step 10: Update EmployeeFaceRecord in DynamoDB
+        logger.info("Step 10: Updating EmployeeFaceRecord in DynamoDB")
         
         # Create new FaceData object
         new_face_data = FaceData(
             face_id=new_face_id,
             employee_id=employee_info.employee_id,
-            bounding_box=liveness_result.get('bounding_box', {}),
-            confidence=liveness_result['confidence'],
-            landmarks=liveness_result.get('landmarks', []),
+            bounding_box=face_detail.get('BoundingBox', {}),
+            confidence=liveness_result.confidence,  # Use Liveness API confidence
+            landmarks=face_detail.get('Landmarks', []),
             thumbnail_s3_key=s3_key
         )
         
@@ -306,7 +367,7 @@ def handle_re_enrollment(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Store updated record in DynamoDB
         db_service.update_employee_face_record(updated_record)
         
-        # Step 10: Record audit trail in CloudWatch Logs
+        # Step 11: Record audit trail in CloudWatch Logs
         logger.info(f"Step 10: Recording audit trail for re-enrollment")
         audit_log = {
             'event': 'RE_ENROLLMENT',
