@@ -8,7 +8,7 @@ Requirements: FR-1, FR-3
 
 import pytest
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 
 # Import the service
@@ -117,7 +117,7 @@ class TestLivenessService:
         confidence = 95.5
         
         # Mock DynamoDB response
-        expires_at = int((datetime.utcnow() + timedelta(minutes=5)).timestamp())
+        expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=5)).timestamp())
         mock_clients['dynamodb'].get_item.return_value = {
             'Item': {
                 'session_id': {'S': session_id},
@@ -172,7 +172,7 @@ class TestLivenessService:
         confidence = 75.0  # Below threshold
         
         # Mock DynamoDB response
-        expires_at = int((datetime.utcnow() + timedelta(minutes=5)).timestamp())
+        expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=5)).timestamp())
         mock_clients['dynamodb'].get_item.return_value = {
             'Item': {
                 'session_id': {'S': session_id},
@@ -228,7 +228,7 @@ class TestLivenessService:
         session_id = 'expired-session'
         
         # Mock DynamoDB response with expired timestamp
-        expires_at = int((datetime.utcnow() - timedelta(minutes=1)).timestamp())  # Expired 1 minute ago
+        expires_at = int((datetime.now(timezone.utc) - timedelta(minutes=1)).timestamp())  # Expired 1 minute ago
         mock_clients['dynamodb'].get_item.return_value = {
             'Item': {
                 'session_id': {'S': session_id},

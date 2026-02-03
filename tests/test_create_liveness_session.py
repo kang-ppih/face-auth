@@ -9,7 +9,7 @@ Requirements: FR-1
 import pytest
 import json
 from unittest.mock import Mock, patch, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Import the handler
 import sys
@@ -59,7 +59,7 @@ class TestCreateLivenessSessionHandler:
         """
         # Arrange
         session_id = 'test-session-123'
-        expires_at = (datetime.utcnow() + timedelta(minutes=10)).isoformat() + 'Z'
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=10)).isoformat() + 'Z'
         
         mock_service = Mock()
         mock_service.create_session.return_value = {

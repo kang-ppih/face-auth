@@ -11,7 +11,7 @@ import boto3
 import json
 import logging
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional, Any
 from dataclasses import dataclass, asdict
 import os
@@ -156,7 +156,7 @@ class LivenessService:
             client_request_token = str(uuid.uuid4())
             
             # Calculate expiration time
-            expires_at = datetime.utcnow() + timedelta(minutes=self.session_timeout_minutes)
+            expires_at = datetime.now(timezone.utc) + timedelta(minutes=self.session_timeout_minutes)
             expires_at_unix = int(expires_at.timestamp())
             
             # Create Liveness session with S3 output configuration
@@ -180,7 +180,7 @@ class LivenessService:
                     'session_id': {'S': session_id},
                     'employee_id': {'S': employee_id},
                     'status': {'S': 'PENDING'},
-                    'created_at': {'S': datetime.utcnow().isoformat()},
+                    'created_at': {'S': datetime.now(timezone.utc).isoformat()},
                     'expires_at': {'N': str(expires_at_unix)}
                 }
             )
@@ -238,7 +238,7 @@ class LivenessService:
             
             # Check if session has expired
             expires_at = int(item['expires_at']['N'])
-            if datetime.utcnow().timestamp() > expires_at:
+            if datetime.now(timezone.utc).timestamp() > expires_at:
                 raise SessionExpiredError(f"Session expired: {session_id}")
             
             # Get liveness session results from Rekognition
@@ -346,7 +346,7 @@ class LivenessService:
             audit_log = {
                 'session_id': session_id,
                 'employee_id': employee_id,
-                'timestamp': datetime.utcnow().isoformat(),
+                'timestamp': datetime.now(timezone.utc).isoformat(),
                 'result': result.to_dict(),
                 'client_info': client_info or {}
             }
