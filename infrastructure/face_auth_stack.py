@@ -775,6 +775,46 @@ class FaceAuthStack(Stack):
             **lambda_config
         )
 
+        # CreateLivenessSession Lambda
+        self.create_liveness_session_lambda = lambda_.Function(
+            self, "CreateLivenessSessionFunction",
+            function_name="FaceAuth-CreateLivenessSession",
+            description="Create Rekognition Liveness session for face verification",
+            code=lambda_.Code.from_asset("lambda/liveness"),
+            handler="create_session_handler.handler",
+            timeout=Duration.seconds(10),  # 10-second timeout
+            memory_size=256,
+            role=self.lambda_execution_role,
+            vpc=self.vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+            security_groups=[self.lambda_security_group],
+            environment={
+                "LIVENESS_SESSIONS_TABLE": self.liveness_sessions_table.table_name,
+                "FACE_AUTH_BUCKET": self.face_auth_bucket.bucket_name,
+                "LIVENESS_CONFIDENCE_THRESHOLD": "90.0"
+            }
+        )
+
+        # GetLivenessResult Lambda
+        self.get_liveness_result_lambda = lambda_.Function(
+            self, "GetLivenessResultFunction",
+            function_name="FaceAuth-GetLivenessResult",
+            description="Get and evaluate Rekognition Liveness session results",
+            code=lambda_.Code.from_asset("lambda/liveness"),
+            handler="get_result_handler.handler",
+            timeout=Duration.seconds(15),  # 15-second timeout
+            memory_size=256,
+            role=self.lambda_execution_role,
+            vpc=self.vpc,
+            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PRIVATE_WITH_EGRESS),
+            security_groups=[self.lambda_security_group],
+            environment={
+                "LIVENESS_SESSIONS_TABLE": self.liveness_sessions_table.table_name,
+                "FACE_AUTH_BUCKET": self.face_auth_bucket.bucket_name,
+                "LIVENESS_CONFIDENCE_THRESHOLD": "90.0"
+            }
+        )
+
     def _create_api_gateway(self):
         """
         Create API Gateway with REST endpoints for authentication
@@ -834,6 +874,14 @@ class FaceAuthStack(Stack):
             self.status_lambda
         )
 
+        create_liveness_session_integration = apigateway.LambdaIntegration(
+            self.create_liveness_session_lambda
+        )
+
+        get_liveness_result_integration = apigateway.LambdaIntegration(
+            self.get_liveness_result_lambda
+        )
+
         # API endpoints
         enroll_resource = auth_resource.add_resource("enroll")
         enroll_resource.add_method("POST", enrollment_integration)
@@ -849,6 +897,19 @@ class FaceAuthStack(Stack):
 
         status_resource = auth_resource.add_resource("status")
         status_resource.add_method("GET", status_integration)
+
+        # Liveness endpoints
+        liveness_resource = self.api.root.add_resource("liveness")
+        session_resource = liveness_resource.add_resource("session")
+        
+        # POST /liveness/session/create
+        create_resource = session_resource.add_resource("create")
+        create_resource.add_method("POST", create_liveness_session_integration)
+        
+        # GET /liveness/session/{sessionId}/result
+        session_id_resource = session_resource.add_resource("{sessionId}")
+        result_resource = session_id_resource.add_resource("result")
+        result_resource.add_method("GET", get_liveness_result_integration)
 
         # API Key for additional security (optional)
         self.api_key = apigateway.ApiKey(

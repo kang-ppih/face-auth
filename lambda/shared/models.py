@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 from decimal import Decimal
 import re
+import json
 
 
 @dataclass
@@ -381,3 +382,94 @@ class ErrorCodes:
     GENERIC_ERROR = "GENERIC_ERROR"
     INVALID_REQUEST = "INVALID_REQUEST"
     UNAUTHORIZED = "UNAUTHORIZED"
+
+
+
+# ErrorResponse helper methods
+class ErrorResponse:
+    """Helper methods for creating standardized error responses"""
+    
+    @staticmethod
+    def bad_request(message: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create 400 Bad Request response"""
+        return {
+            'statusCode': 400,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': 'true'
+            },
+            'body': json.dumps({
+                'error': 'BAD_REQUEST',
+                'message': message,
+                'details': details or {}
+            })
+        }
+    
+    @staticmethod
+    def unauthorized(message: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create 401 Unauthorized response"""
+        return {
+            'statusCode': 401,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': 'true'
+            },
+            'body': json.dumps({
+                'error': 'UNAUTHORIZED',
+                'message': message,
+                'details': details or {}
+            })
+        }
+    
+    @staticmethod
+    def not_found(message: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create 404 Not Found response"""
+        return {
+            'statusCode': 404,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': 'true'
+            },
+            'body': json.dumps({
+                'error': 'NOT_FOUND',
+                'message': message,
+                'details': details or {}
+            })
+        }
+    
+    @staticmethod
+    def gone(message: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create 410 Gone response"""
+        return {
+            'statusCode': 410,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': 'true'
+            },
+            'body': json.dumps({
+                'error': 'GONE',
+                'message': message,
+                'details': details or {}
+            })
+        }
+    
+    @staticmethod
+    def internal_server_error(message: str, details: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Create 500 Internal Server Error response"""
+        return {
+            'statusCode': 500,
+            'headers': {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'Access-Control-Allow-Credentials': 'true'
+            },
+            'body': json.dumps({
+                'error': 'INTERNAL_SERVER_ERROR',
+                'message': message,
+                'details': details or {}
+            })
+        }
