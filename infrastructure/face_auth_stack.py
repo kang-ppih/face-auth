@@ -313,6 +313,13 @@ class FaceAuthStack(Stack):
                     prefix="temp/",
                     enabled=True,
                     expiration=Duration.days(1)
+                ),
+                # Lifecycle rule for liveness audit logs (90-day deletion)
+                s3.LifecycleRule(
+                    id="LivenessAuditCleanup",
+                    prefix="liveness-audit/",
+                    enabled=True,
+                    expiration=Duration.days(90)
                 )
             ]
         )
@@ -493,6 +500,33 @@ class FaceAuthStack(Stack):
             time_to_live_attribute="expires_at"  # Automatic session cleanup
         )
 
+        # Liveness Sessions table for Rekognition Liveness API
+        self.liveness_sessions_table = dynamodb.Table(
+            self, "LivenessSessionsTable",
+            table_name="FaceAuth-LivenessSessions",
+            partition_key=dynamodb.Attribute(
+                name="session_id",
+                type=dynamodb.AttributeType.STRING
+            ),
+            billing_mode=dynamodb.BillingMode.PAY_PER_REQUEST,
+            encryption=dynamodb.TableEncryption.AWS_MANAGED,
+            removal_policy=RemovalPolicy.RETAIN,
+            time_to_live_attribute="expires_at",  # Automatic cleanup after 10 minutes
+            point_in_time_recovery_specification=dynamodb.PointInTimeRecoverySpecification(
+                point_in_time_recovery_enabled=True
+            )
+        )
+
+        # Global Secondary Index for employee_id queries (for audit and debugging)
+        self.liveness_sessions_table.add_global_secondary_index(
+            index_name="EmployeeIdIndex",
+            partition_key=dynamodb.Attribute(
+                name="employee_id",
+                type=dynamodb.AttributeType.STRING
+            ),
+            projection_type=dynamodb.ProjectionType.ALL
+        )
+
     def _create_cognito_user_pool(self):
         """
         Create Cognito User Pool for authentication session management
@@ -581,8 +615,10 @@ class FaceAuthStack(Stack):
                         self.card_templates_table.table_arn,
                         self.employee_faces_table.table_arn,
                         self.auth_sessions_table.table_arn,
+                        self.liveness_sessions_table.table_arn,
                         f"{self.card_templates_table.table_arn}/index/*",
-                        f"{self.employee_faces_table.table_arn}/index/*"
+                        f"{self.employee_faces_table.table_arn}/index/*",
+                        f"{self.liveness_sessions_table.table_arn}/index/*"
                     ]
                 ),
                 # Amazon Rekognition permissions
@@ -596,7 +632,9 @@ class FaceAuthStack(Stack):
                         "rekognition:CreateCollection",
                         "rekognition:DeleteCollection",
                         "rekognition:ListCollections",
-                        "rekognition:DescribeCollection"
+                        "rekognition:DescribeCollection",
+                        "rekognition:CreateFaceLivenessSession",
+                        "rekognition:GetFaceLivenessSessionResults"
                     ],
                     resources=["*"]
                 ),
@@ -671,9 +709,11 @@ class FaceAuthStack(Stack):
                 "CARD_TEMPLATES_TABLE": self.card_templates_table.table_name,
                 "EMPLOYEE_FACES_TABLE": self.employee_faces_table.table_name,
                 "AUTH_SESSIONS_TABLE": self.auth_sessions_table.table_name,
+                "LIVENESS_SESSIONS_TABLE": self.liveness_sessions_table.table_name,
                 "COGNITO_USER_POOL_ID": self.user_pool.user_pool_id,
                 "COGNITO_CLIENT_ID": self.user_pool_client.user_pool_client_id,
                 "REKOGNITION_COLLECTION_ID": "face-auth-employees",
+                "LIVENESS_CONFIDENCE_THRESHOLD": "90.0",  # 90% confidence threshold for liveness
                 "AD_TIMEOUT": "10",  # 10-second AD timeout
                 "LAMBDA_TIMEOUT": "15",  # 15-second Lambda timeout
                 "SESSION_TIMEOUT_HOURS": "8",  # 8-hour session timeout
