@@ -1,10 +1,14 @@
 /**
  * Enrollment Component
  * Handles employee enrollment with ID card verification and face registration
+ * 
+ * Flow: ID Card → Liveness → Face Capture → Submit
+ * Requirements: US-1, FR-4.1
  */
 
 import React, { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
+import LivenessDetector from './LivenessDetector';
 import apiService from '../services/api';
 import { AuthResponse } from '../types';
 import './Enrollment.css';
@@ -14,7 +18,7 @@ interface EnrollmentProps {
   onError: (error: string) => void;
 }
 
-type EnrollmentStep = 'idcard' | 'face' | 'processing' | 'complete';
+type EnrollmentStep = 'idcard' | 'liveness' | 'face' | 'processing' | 'complete';
 
 interface DebugInfo {
   employeeId?: string;
@@ -23,12 +27,14 @@ interface DebugInfo {
   confidence?: number;
   idCardImage?: string;
   faceImage?: string;
+  livenessSessionId?: string;
   rawResponse?: any;
 }
 
 const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
   const [step, setStep] = useState<EnrollmentStep>('idcard');
   const [idCardImage, setIdCardImage] = useState<string>('');
+  const [livenessSessionId, setLivenessSessionId] = useState<string>('');
   const [faceImage, setFaceImage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [debugMode, setDebugMode] = useState<boolean>(false);
@@ -49,7 +55,25 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
     if (debugMode) {
       setDebugInfo(prev => ({ ...prev, idCardImage: imageBase64 }));
     }
+    // ID Card → Liveness
+    setStep('liveness');
+  };
+
+  const handleLivenessSuccess = (sessionId: string) => {
+    setLivenessSessionId(sessionId);
+    if (debugMode) {
+      setDebugInfo(prev => ({ ...prev, livenessSessionId: sessionId }));
+      console.log('🐛 Liveness Session ID:', sessionId);
+    }
+    // Liveness → Face Capture
     setStep('face');
+  };
+
+  const handleLivenessError = (error: string) => {
+    setErrorMessage(`ライブネス検証エラー: ${error}`);
+    onError(error);
+    // Retry liveness
+    setStep('liveness');
   };
 
   const handleFaceCapture = async (imageBase64: string) => {
@@ -63,6 +87,7 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
       const response = await apiService.enrollment({
         idCardImage,
         faceImage: imageBase64,
+        livenessSessionId, // Add liveness session ID
       });
 
       // Store debug information
@@ -72,7 +97,7 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
           employeeId: response.employeeInfo?.employeeId,
           employeeName: response.employeeInfo?.name,
           department: response.employeeInfo?.department,
-          confidence: debugInfo.confidence, // Keep from previous state if available
+          confidence: debugInfo.confidence,
           rawResponse: response,
         }));
         console.log('🐛 Enrollment Response:', response);
@@ -101,6 +126,8 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
   const resetEnrollment = () => {
     setStep('idcard');
     setIdCardImage('');
+    setLivenessSessionId('');
+    setFaceImage('');
     setErrorMessage('');
   };
 
@@ -125,6 +152,20 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
         </div>
       )}
 
+      {step === 'liveness' && (
+        <div className="enrollment-step">
+          <p className="step-instruction">ライブネス検証を実施してください</p>
+          <LivenessDetector
+            employeeId="ENROLLMENT"
+            onSuccess={handleLivenessSuccess}
+            onError={handleLivenessError}
+          />
+          <button onClick={resetEnrollment} className="back-button">
+            戻る
+          </button>
+        </div>
+      )}
+
       {step === 'face' && (
         <div className="enrollment-step">
           <p className="step-instruction">顔を登録してください</p>
@@ -133,7 +174,7 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
             onError={handleCameraError}
             captureMode="face"
           />
-          <button onClick={resetEnrollment} className="back-button">
+          <button onClick={() => setStep('liveness')} className="back-button">
             戻る
           </button>
         </div>
@@ -165,6 +206,7 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
               <p><strong>氏名:</strong> {debugInfo.employeeName || '未取得'}</p>
               <p><strong>所属:</strong> {debugInfo.department || '未取得'}</p>
               <p><strong>信頼度:</strong> {debugInfo.confidence ? `${(debugInfo.confidence * 100).toFixed(1)}%` : '未取得'}</p>
+              <p><strong>Liveness Session ID:</strong> {debugInfo.livenessSessionId || '未取得'}</p>
             </div>
           </div>
 

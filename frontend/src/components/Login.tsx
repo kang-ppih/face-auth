@@ -1,10 +1,14 @@
 /**
  * Login Component
  * Handles face-based login (1:N matching)
+ * 
+ * Flow: Liveness → Face Capture → Submit
+ * Requirements: US-2, FR-4.2
  */
 
 import React, { useState, useEffect } from 'react';
 import CameraCapture from './CameraCapture';
+import LivenessDetector from './LivenessDetector';
 import apiService from '../services/api';
 import { AuthResponse } from '../types';
 import './Login.css';
@@ -15,17 +19,21 @@ interface LoginProps {
   onEmergencyAuth: () => void;
 }
 
+type LoginStep = 'liveness' | 'face' | 'processing';
+
 interface DebugInfo {
   employeeId?: string;
   employeeName?: string;
   similarity?: number;
   confidence?: number;
   faceImage?: string;
+  livenessSessionId?: string;
   rawResponse?: any;
 }
 
 const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) => {
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<LoginStep>('liveness');
+  const [livenessSessionId, setLivenessSessionId] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [debugMode, setDebugMode] = useState<boolean>(false);
@@ -41,8 +49,27 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
     }
   }, []);
 
+  const handleLivenessSuccess = (sessionId: string) => {
+    setLivenessSessionId(sessionId);
+    if (debugMode) {
+      setDebugInfo(prev => ({ ...prev, livenessSessionId: sessionId }));
+      console.log('🐛 Liveness Session ID:', sessionId);
+    }
+    // Liveness → Face Capture
+    setStep('face');
+  };
+
+  const handleLivenessError = (error: string) => {
+    const newFailedAttempts = failedAttempts + 1;
+    setFailedAttempts(newFailedAttempts);
+    setErrorMessage(`ライブネス検証エラー: ${error}`);
+    onError(error);
+    // Retry liveness
+    setStep('liveness');
+  };
+
   const handleFaceCapture = async (imageBase64: string) => {
-    setLoading(true);
+    setStep('processing');
     setErrorMessage('');
 
     if (debugMode) {
@@ -52,6 +79,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
     try {
       const response = await apiService.login({
         faceImage: imageBase64,
+        livenessSessionId, // Add liveness session ID
       });
 
       // Store debug information
@@ -60,8 +88,8 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
           ...prev,
           employeeId: response.employeeInfo?.employeeId,
           employeeName: response.employeeInfo?.name,
-          similarity: debugInfo.similarity, // Keep from previous state if available
-          confidence: debugInfo.confidence, // Keep from previous state if available
+          similarity: debugInfo.similarity,
+          confidence: debugInfo.confidence,
           rawResponse: response,
         }));
         console.log('🐛 Login Response:', response);
@@ -74,12 +102,12 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
         setFailedAttempts(newFailedAttempts);
         setErrorMessage(response.error?.message || 'ログインに失敗しました');
         onError(response.error?.message || 'ログインに失敗しました');
+        setStep('liveness'); // Restart from liveness
       }
     } catch (error: any) {
       setErrorMessage('ログイン処理中にエラーが発生しました');
       onError('ログイン処理中にエラーが発生しました');
-    } finally {
-      setLoading(false);
+      setStep('liveness'); // Restart from liveness
     }
   };
 
@@ -107,12 +135,18 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
         </div>
       )}
 
-      {loading ? (
+      {step === 'liveness' && (
         <div className="login-step">
-          <div className="loading-spinner"></div>
-          <p>認証中...</p>
+          <p className="step-instruction">ライブネス検証を実施してください</p>
+          <LivenessDetector
+            employeeId="LOGIN"
+            onSuccess={handleLivenessSuccess}
+            onError={handleLivenessError}
+          />
         </div>
-      ) : (
+      )}
+
+      {step === 'face' && (
         <div className="login-step">
           <p className="step-instruction">顔をカメラに向けてください</p>
           <CameraCapture
@@ -120,6 +154,16 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
             onError={handleCameraError}
             captureMode="face"
           />
+          <button onClick={() => setStep('liveness')} className="back-button">
+            戻る
+          </button>
+        </div>
+      )}
+
+      {step === 'processing' && (
+        <div className="login-step">
+          <div className="loading-spinner"></div>
+          <p>認証中...</p>
         </div>
       )}
 
@@ -135,6 +179,7 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
               <p><strong>氏名:</strong> {debugInfo.employeeName || '未取得'}</p>
               <p><strong>類似度:</strong> {debugInfo.similarity ? `${debugInfo.similarity.toFixed(1)}%` : '未取得'}</p>
               <p><strong>信頼度:</strong> {debugInfo.confidence ? `${debugInfo.confidence.toFixed(1)}%` : '未取得'}</p>
+              <p><strong>Liveness Session ID:</strong> {debugInfo.livenessSessionId || '未取得'}</p>
               <p><strong>失敗回数:</strong> {failedAttempts}</p>
             </div>
           </div>

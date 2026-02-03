@@ -28,20 +28,24 @@ export interface AuthResponse {
 export interface EnrollmentRequest {
   idCardImage: string; // base64
   faceImage: string; // base64
+  livenessSessionId?: string; // Rekognition Liveness session ID
 }
 
 export interface LoginRequest {
   faceImage: string; // base64
+  livenessSessionId?: string; // Rekognition Liveness session ID
 }
 
 export interface EmergencyAuthRequest {
   idCardImage: string; // base64
   password: string;
+  livenessSessionId?: string; // Rekognition Liveness session ID
 }
 
 export interface ReEnrollmentRequest {
   idCardImage: string; // base64
   faceImage: string; // base64
+  livenessSessionId?: string; // Rekognition Liveness session ID
 }
 
 export type AuthMode = 'LOGIN' | 'ENROLL' | 'EMERGENCY' | 'RE_ENROLL';
