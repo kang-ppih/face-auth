@@ -26,6 +26,7 @@ from shared.cognito_service import CognitoService
 from shared.error_handler import ErrorHandler
 from shared.timeout_manager import TimeoutManager
 from shared.dynamodb_service import DynamoDBService
+from shared.liveness_service import LivenessService, SessionNotFoundError, SessionExpiredError
 from shared.models import ErrorCodes
 
 # Configure logging
@@ -77,12 +78,19 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Extract and validate request data
         face_image_b64 = body.get('face_image')
+        liveness_session_id = body.get('liveness_session_id')  # New: Liveness session ID
         
         if not face_image_b64:
             logger.warning("Missing face image in request")
             return _error_response(400, ErrorCodes.INVALID_REQUEST,
                                  "顔画像が必要です",
                                  "Missing face_image", request_id)
+        
+        if not liveness_session_id:
+            logger.warning("Missing liveness_session_id in request")
+            return _error_response(400, ErrorCodes.INVALID_REQUEST,
+                                 "Liveness検証が必要です",
+                                 "Missing liveness_session_id", request_id)
         
         # Decode base64 image
         try:
@@ -106,27 +114,58 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         db_service = DynamoDBService(region_name=region)
         db_service.initialize_tables(card_templates_table, employee_faces_table, auth_sessions_table)
         
-        # Step 1: Perform liveness detection
-        logger.info("Step 1: Performing liveness detection")
+        # Step 1: Verify Liveness session (NEW - First step)
+        logger.info(f"Step 1: Verifying Liveness session {liveness_session_id}")
         if not timeout_manager.should_continue(buffer_seconds=2.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
                                  "処理時間が超過しました",
-                                 "Timeout before liveness detection", request_id)
+                                 "Timeout before liveness verification", request_id)
         
-        liveness_result = face_service.detect_liveness(face_image)
-        if not liveness_result['is_live']:
-            logger.warning(f"Liveness detection failed: confidence {liveness_result.get('confidence', 0)}")
-            error_response = error_handler.handle_error(
-                ErrorCodes.LIVENESS_FAILED,
-                {'request_id': request_id, 'confidence': liveness_result.get('confidence')}
+        try:
+            liveness_service = LivenessService()
+            liveness_result = liveness_service.get_session_result(liveness_session_id)
+            
+            if not liveness_result.is_live:
+                logger.warning(
+                    f"Liveness verification failed: confidence {liveness_result.confidence}, "
+                    f"threshold {liveness_service.confidence_threshold}"
+                )
+                error_response = error_handler.handle_error(
+                    ErrorCodes.LIVENESS_FAILED,
+                    {
+                        'request_id': request_id,
+                        'confidence': liveness_result.confidence,
+                        'threshold': liveness_service.confidence_threshold
+                    }
+                )
+                return _error_response(401, error_response.error_code,
+                                     error_response.user_message,
+                                     error_response.system_reason, request_id)
+            
+            logger.info(
+                f"Liveness verification passed: confidence {liveness_result.confidence}, "
+                f"session_id {liveness_session_id}"
             )
-            return _error_response(400, error_response.error_code,
-                                 error_response.user_message,
-                                 error_response.system_reason, request_id)
+            
+        except SessionNotFoundError as e:
+            logger.warning(f"Liveness session not found: {liveness_session_id}")
+            return _error_response(404, ErrorCodes.INVALID_REQUEST,
+                                 "Liveness検証セッションが見つかりません",
+                                 f"Session not found: {str(e)}", request_id)
         
-        logger.info(f"Liveness detection passed with confidence {liveness_result['confidence']}")
+        except SessionExpiredError as e:
+            logger.warning(f"Liveness session expired: {liveness_session_id}")
+            return _error_response(410, ErrorCodes.TIMEOUT_ERROR,
+                                 "Liveness検証セッションが期限切れです",
+                                 f"Session expired: {str(e)}", request_id)
         
-        # Step 2: Search faces in Rekognition collection (1:N matching)
+        except Exception as e:
+            logger.error(f"Liveness verification error: {str(e)}", exc_info=True)
+            return _error_response(500, ErrorCodes.GENERIC_ERROR,
+                                 "Liveness検証に失敗しました",
+                                 f"Liveness verification error: {str(e)}", request_id)
+        
+        # Step 2: Perform 1:N face matching (removed old liveness detection)
         logger.info("Step 2: Performing 1:N face matching")
         if not timeout_manager.should_continue(buffer_seconds=3.0):
             return _error_response(408, ErrorCodes.TIMEOUT_ERROR,
@@ -142,7 +181,7 @@ def handle_face_login(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if not matches or len(matches) == 0:
             logger.info("No face match found, storing failed attempt")
             
-            # Step 4: Store failed attempt in S3 logins/ folder
+            # Step 3: Store failed attempt in S3 logins/ folder
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             date_folder = datetime.now().strftime('%Y-%m-%d')
             s3_key = f"logins/{date_folder}/{timestamp}_unknown.jpg"

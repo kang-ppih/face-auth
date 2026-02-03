@@ -282,6 +282,42 @@ class FaceRecognitionService:
                 request_id=request_id or "unknown"
             )
     
+    def detect_faces(self, image_bytes: bytes) -> Optional[List[Dict[str, Any]]]:
+        """
+        Detect faces in an image without liveness check
+        
+        This method is used to get face details (bounding box, landmarks, confidence)
+        after liveness has been verified separately using Rekognition Liveness API.
+        
+        Args:
+            image_bytes: Face image data as bytes
+            
+        Returns:
+            List of face details dictionaries, or None if no faces detected
+            
+        Requirements: FR-4.1
+        """
+        try:
+            logger.info("Detecting faces in image")
+            
+            response = self.rekognition.detect_faces(
+                Image={'Bytes': image_bytes},
+                Attributes=['ALL']
+            )
+            
+            face_details = response.get('FaceDetails', [])
+            
+            if not face_details:
+                logger.warning("No faces detected in image")
+                return None
+            
+            logger.info(f"Detected {len(face_details)} face(s)")
+            return face_details
+            
+        except Exception as e:
+            logger.error(f"Error detecting faces: {str(e)}", exc_info=True)
+            return None
+    
     def search_faces(self, image_bytes: bytes, 
                     request_id: str = None) -> Tuple[Optional[List[FaceMatch]], Optional[ErrorResponse]]:
         """
