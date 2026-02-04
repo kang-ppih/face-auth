@@ -24,6 +24,7 @@ from aws_cdk import (
     aws_cloudfront as cloudfront,
     aws_cloudfront_origins as origins,
     aws_s3_deployment as s3deploy,
+    aws_wafv2 as wafv2,
     CfnOutput,
     Fn
 )
@@ -98,6 +99,9 @@ class FaceAuthStack(Stack):
         
         # Create API Gateway
         self._create_api_gateway()
+        
+        # Create WAF for API Gateway and CloudFront
+        self._create_waf()
         
         # Create CloudWatch Log Groups
         self._create_cloudwatch_logs()
@@ -422,12 +426,9 @@ class FaceAuthStack(Stack):
             enabled=True,
             comment="Face-Auth IdP Frontend Distribution"
         )
-
-        # Add WAF Web ACL for IP restriction if IPs are specified
-        if self.allowed_ip_ranges != ["0.0.0.0/0"]:
-            # Note: WAF Web ACL creation requires aws_wafv2 module
-            # For now, we'll document this in outputs
-            pass
+        
+        # Store distribution for later WAF association
+        # WAF will be associated in _create_waf() method
 
     def _create_dynamodb_tables(self):
         """
@@ -1162,6 +1163,159 @@ class FaceAuthStack(Stack):
             datapoints_to_alarm=2,
             comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
             treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+    
+    def _create_waf(self):
+        """
+        Create AWS WAF Web ACLs for API Gateway and CloudFront with IP-based access control
+        Requirements: Security, IP restriction
+        """
+        # Skip WAF creation if all IPs are allowed (development mode)
+        if self.allowed_ip_ranges == ["0.0.0.0/0"]:
+            return
+        
+        # Create IP Set for allowed IP addresses
+        ip_set = wafv2.CfnIPSet(
+            self, "FaceAuthAllowedIPSet",
+            name="FaceAuth-AllowedIPs",
+            scope="REGIONAL",  # For API Gateway
+            ip_address_version="IPV4",
+            addresses=self.allowed_ip_ranges,
+            description="Allowed IP addresses for Face-Auth system"
+        )
+        
+        # Create IP Set for CloudFront (CLOUDFRONT scope)
+        ip_set_cloudfront = wafv2.CfnIPSet(
+            self, "FaceAuthAllowedIPSetCloudFront",
+            name="FaceAuth-AllowedIPs-CloudFront",
+            scope="CLOUDFRONT",  # For CloudFront (must be in us-east-1)
+            ip_address_version="IPV4",
+            addresses=self.allowed_ip_ranges,
+            description="Allowed IP addresses for Face-Auth CloudFront"
+        )
+        
+        # Create Web ACL for API Gateway (REGIONAL)
+        self.api_web_acl = wafv2.CfnWebACL(
+            self, "FaceAuthAPIWebACL",
+            name="FaceAuth-API-WebACL",
+            scope="REGIONAL",
+            default_action=wafv2.CfnWebACL.DefaultActionProperty(
+                block={}  # Block by default
+            ),
+            rules=[
+                # Rule 1: Allow requests from allowed IPs
+                wafv2.CfnWebACL.RuleProperty(
+                    name="AllowListedIPs",
+                    priority=1,
+                    statement=wafv2.CfnWebACL.StatementProperty(
+                        ip_set_reference_statement=wafv2.CfnWebACL.IPSetReferenceStatementProperty(
+                            arn=ip_set.attr_arn
+                        )
+                    ),
+                    action=wafv2.CfnWebACL.RuleActionProperty(
+                        allow={}
+                    ),
+                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                        sampled_requests_enabled=True,
+                        cloud_watch_metrics_enabled=True,
+                        metric_name="AllowListedIPs"
+                    )
+                ),
+                # Rule 2: Rate limiting (1000 requests per 5 minutes per IP)
+                wafv2.CfnWebACL.RuleProperty(
+                    name="RateLimitRule",
+                    priority=2,
+                    statement=wafv2.CfnWebACL.StatementProperty(
+                        rate_based_statement=wafv2.CfnWebACL.RateBasedStatementProperty(
+                            limit=1000,
+                            aggregate_key_type="IP"
+                        )
+                    ),
+                    action=wafv2.CfnWebACL.RuleActionProperty(
+                        block={}
+                    ),
+                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                        sampled_requests_enabled=True,
+                        cloud_watch_metrics_enabled=True,
+                        metric_name="RateLimitRule"
+                    )
+                )
+            ],
+            visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                sampled_requests_enabled=True,
+                cloud_watch_metrics_enabled=True,
+                metric_name="FaceAuthAPIWebACL"
+            ),
+            description="WAF Web ACL for Face-Auth API Gateway with IP whitelist"
+        )
+        
+        # Associate Web ACL with API Gateway
+        wafv2.CfnWebACLAssociation(
+            self, "APIWebACLAssociation",
+            resource_arn=f"arn:aws:apigateway:{self.region}::/restapis/{self.api.rest_api_id}/stages/{self.api.deployment_stage.stage_name}",
+            web_acl_arn=self.api_web_acl.attr_arn
+        )
+        
+        # Create Web ACL for CloudFront (CLOUDFRONT scope - must be in us-east-1)
+        self.cloudfront_web_acl = wafv2.CfnWebACL(
+            self, "FaceAuthCloudFrontWebACL",
+            name="FaceAuth-CloudFront-WebACL",
+            scope="CLOUDFRONT",
+            default_action=wafv2.CfnWebACL.DefaultActionProperty(
+                block={}  # Block by default
+            ),
+            rules=[
+                # Rule 1: Allow requests from allowed IPs
+                wafv2.CfnWebACL.RuleProperty(
+                    name="AllowListedIPs",
+                    priority=1,
+                    statement=wafv2.CfnWebACL.StatementProperty(
+                        ip_set_reference_statement=wafv2.CfnWebACL.IPSetReferenceStatementProperty(
+                            arn=ip_set_cloudfront.attr_arn
+                        )
+                    ),
+                    action=wafv2.CfnWebACL.RuleActionProperty(
+                        allow={}
+                    ),
+                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                        sampled_requests_enabled=True,
+                        cloud_watch_metrics_enabled=True,
+                        metric_name="AllowListedIPs"
+                    )
+                ),
+                # Rule 2: Rate limiting (1000 requests per 5 minutes per IP)
+                wafv2.CfnWebACL.RuleProperty(
+                    name="RateLimitRule",
+                    priority=2,
+                    statement=wafv2.CfnWebACL.StatementProperty(
+                        rate_based_statement=wafv2.CfnWebACL.RateBasedStatementProperty(
+                            limit=1000,
+                            aggregate_key_type="IP"
+                        )
+                    ),
+                    action=wafv2.CfnWebACL.RuleActionProperty(
+                        block={}
+                    ),
+                    visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                        sampled_requests_enabled=True,
+                        cloud_watch_metrics_enabled=True,
+                        metric_name="RateLimitRule"
+                    )
+                )
+            ],
+            visibility_config=wafv2.CfnWebACL.VisibilityConfigProperty(
+                sampled_requests_enabled=True,
+                cloud_watch_metrics_enabled=True,
+                metric_name="FaceAuthCloudFrontWebACL"
+            ),
+            description="WAF Web ACL for Face-Auth CloudFront with IP whitelist"
+        )
+        
+        # Associate Web ACL with CloudFront distribution using escape hatch
+        cfn_distribution = self.frontend_distribution.node.default_child
+        cfn_distribution.add_property_override(
+            "DistributionConfig.WebACLId",
+            self.cloudfront_web_acl.attr_arn
         )
 
     def _create_outputs(self):
