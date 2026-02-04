@@ -27,39 +27,36 @@ from liveness_service import (
 
 
 @pytest.fixture
-def liveness_service():
+def liveness_service(mock_aws_clients):
     """Create LivenessService instance for testing."""
-    return LivenessService(
-        confidence_threshold=90.0,
-        session_timeout_minutes=10
-    )
+    with patch.dict(os.environ, {
+        'FACE_AUTH_BUCKET': 'test-bucket',
+        'LIVENESS_SESSIONS_TABLE': 'test-liveness-sessions',
+        'LIVENESS_CONFIDENCE_THRESHOLD': '90.0'
+    }):
+        service = LivenessService(
+            confidence_threshold=90.0,
+            session_timeout_minutes=10
+        )
+        # Replace boto3 clients with mocks
+        service.rekognition = mock_aws_clients['rekognition']
+        service.dynamodb = mock_aws_clients['dynamodb']
+        service.s3 = mock_aws_clients['s3']
+        return service
 
 
 @pytest.fixture
 def mock_aws_clients():
     """Mock AWS clients for integration tests."""
-    with patch('boto3.client') as mock_client:
-        # Mock Rekognition client
-        mock_rekognition = MagicMock()
-        mock_dynamodb = MagicMock()
-        mock_s3 = MagicMock()
-        
-        def client_factory(service_name, **kwargs):
-            if service_name == 'rekognition':
-                return mock_rekognition
-            elif service_name == 'dynamodb':
-                return mock_dynamodb
-            elif service_name == 's3':
-                return mock_s3
-            return MagicMock()
-        
-        mock_client.side_effect = client_factory
-        
-        yield {
-            'rekognition': mock_rekognition,
-            'dynamodb': mock_dynamodb,
-            's3': mock_s3
-        }
+    mock_rekognition = MagicMock()
+    mock_dynamodb = MagicMock()
+    mock_s3 = MagicMock()
+    
+    return {
+        'rekognition': mock_rekognition,
+        'dynamodb': mock_dynamodb,
+        's3': mock_s3
+    }
 
 
 class TestLivenessIntegration:
@@ -209,11 +206,14 @@ class TestLivenessIntegration:
             'Confidence': 85.0
         }
         
+        mock_aws_clients['dynamodb'].update_item.return_value = {}
+        
         result = liveness_service.get_session_result(session_id)
         
         assert result.is_live is False
         assert result.confidence == 85.0
-        assert 'threshold' in result.reason.lower()
+        assert result.error_message is not None
+        assert 'threshold' in result.error_message.lower()
         
     def test_audit_log_storage(self, liveness_service, mock_aws_clients):
         """
@@ -285,6 +285,7 @@ class TestLivenessErrorHandling:
         Requirements: FR-5.3
         """
         from botocore.exceptions import ClientError
+        from liveness_service import LivenessServiceError
         
         employee_id = 'TEST006'
         
@@ -294,7 +295,7 @@ class TestLivenessErrorHandling:
             'CreateFaceLivenessSession'
         )
         
-        with pytest.raises(ClientError):
+        with pytest.raises(LivenessServiceError):
             liveness_service.create_session(employee_id)
             
     def test_dynamodb_error(self, liveness_service, mock_aws_clients):
@@ -304,6 +305,7 @@ class TestLivenessErrorHandling:
         Requirements: FR-5.3
         """
         from botocore.exceptions import ClientError
+        from liveness_service import LivenessServiceError
         
         session_id = 'test-session'
         
@@ -313,7 +315,7 @@ class TestLivenessErrorHandling:
             'GetItem'
         )
         
-        with pytest.raises(ClientError):
+        with pytest.raises(LivenessServiceError):
             liveness_service.get_session_result(session_id)
 
 
