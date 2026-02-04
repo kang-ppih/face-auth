@@ -13,7 +13,7 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
 - **Amazon S3**: 顔画像保存（ライフサイクルポリシー付き）
 - **Amazon DynamoDB**: カードテンプレートと従業員データ保存
 - **AWS Lambda**: 認証ロジック処理
-- **Amazon Rekognition**: 顔認識とLiveness検出
+- **Amazon Rekognition**: 顔認識とLiveness検出（なりすまし防止）
 - **Amazon Textract**: 社員証OCR処理
 - **AWS Cognito**: ユーザーセッション管理
 - **Amazon API Gateway**: REST APIエンドポイント
@@ -127,16 +127,61 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
   - `FaceAuth-EmergencyAuth`: 緊急認証
   - `FaceAuth-ReEnrollment`: 再登録
   - `FaceAuth-Status`: ステータス確認
+  - `FaceAuth-CreateLivenessSession`: Livenessセッション作成
+  - `FaceAuth-GetLivenessResult`: Liveness検証結果取得
 
 ### APIエンドポイント
 
 ```
-POST /auth/enroll      # 従業員登録
-POST /auth/login       # 顔ログイン
-POST /auth/emergency   # 緊急認証
-POST /auth/re-enroll   # 再登録
-GET  /auth/status      # 認証ステータス確認
+POST /auth/enroll                          # 従業員登録
+POST /auth/login                           # 顔ログイン
+POST /auth/emergency                       # 緊急認証
+POST /auth/re-enroll                       # 再登録
+GET  /auth/status                          # 認証ステータス確認
+POST /liveness/session/create              # Livenessセッション作成
+GET  /liveness/session/{sessionId}/result  # Liveness検証結果取得
 ```
+
+## 🛡️ Liveness検証機能
+
+### 概要
+
+Face-Auth IdPシステムは、AWS Rekognition Face Liveness APIを使用して、写真や動画を使ったなりすまし攻撃を防ぐ高度な生体検証機能を提供します。
+
+### 主な機能
+
+- **写真なりすまし防御**: 印刷された写真やスマートフォン画面での攻撃を防御（100%防御率）
+- **動画なりすまし防御**: 録画された動画での攻撃を防御（95%以上の防御率）
+- **信頼度スコア**: 90%以上の信頼度を要求
+- **監査ログ**: すべての検証結果をS3に保存（90日間保持）
+- **CloudWatch監視**: 成功率、信頼度、処理時間などをリアルタイム監視
+
+### 認証フロー
+
+```
+1. ユーザーがLiveness検証を開始
+   ↓
+2. フロントエンドがセッション作成APIを呼び出し
+   ↓
+3. Rekognition Liveness APIがセッションを作成
+   ↓
+4. ユーザーがカメラで顔を撮影（Amplify UI Liveness Detector）
+   ↓
+5. フロントエンドが検証結果取得APIを呼び出し
+   ↓
+6. Rekognition APIが生体検証を実行
+   ↓
+7. 信頼度スコア（90%以上）を評価
+   ↓
+8. 検証成功 → 認証処理続行
+   検証失敗 → エラーメッセージ表示
+```
+
+### ドキュメント
+
+- [Liveness Service 技術ドキュメント](docs/LIVENESS_SERVICE.md)
+- [Liveness Migration Guide](docs/LIVENESS_MIGRATION_GUIDE.md)
+- [Liveness Operations Manual](docs/LIVENESS_OPERATIONS.md)
 
 ## 🔧 設定
 

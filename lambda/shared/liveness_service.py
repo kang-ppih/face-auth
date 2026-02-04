@@ -92,6 +92,7 @@ class LivenessService:
         rekognition_client: Optional[Any] = None,
         dynamodb_client: Optional[Any] = None,
         s3_client: Optional[Any] = None,
+        cloudwatch_client: Optional[Any] = None,
         confidence_threshold: float = 90.0,
         session_timeout_minutes: int = 10,
         liveness_sessions_table: Optional[str] = None,
@@ -104,6 +105,7 @@ class LivenessService:
             rekognition_client: Boto3 Rekognition client (optional)
             dynamodb_client: Boto3 DynamoDB client (optional)
             s3_client: Boto3 S3 client (optional)
+            cloudwatch_client: Boto3 CloudWatch client (optional)
             confidence_threshold: 信頼度閾値（デフォルト: 90.0%）
             session_timeout_minutes: セッションタイムアウト（デフォルト: 10分）
             liveness_sessions_table: DynamoDBテーブル名（オプション）
@@ -112,6 +114,7 @@ class LivenessService:
         self.rekognition = rekognition_client or boto3.client('rekognition')
         self.dynamodb = dynamodb_client or boto3.client('dynamodb')
         self.s3 = s3_client or boto3.client('s3')
+        self.cloudwatch = cloudwatch_client or boto3.client('cloudwatch')
         
         self.confidence_threshold = confidence_threshold
         self.session_timeout_minutes = session_timeout_minutes
@@ -151,6 +154,8 @@ class LivenessService:
             
         Requirements: FR-1.1, FR-1.2, FR-1.3
         """
+        start_time = datetime.now(timezone.utc)
+        
         try:
             # Generate unique client request token
             client_request_token = str(uuid.uuid4())
@@ -185,12 +190,18 @@ class LivenessService:
                 }
             )
             
+            # Send metrics
+            elapsed_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            self._send_metric('SessionCreationTime', elapsed_time, 'Seconds')
+            self._send_metric('SessionCreated', 1.0, 'Count')
+            
             logger.info(
                 f"Liveness session created",
                 extra={
                     'session_id': session_id,
                     'employee_id': employee_id,
-                    'expires_at': expires_at.isoformat()
+                    'expires_at': expires_at.isoformat(),
+                    'elapsed_time': elapsed_time
                 }
             )
             
@@ -200,6 +211,8 @@ class LivenessService:
             }
             
         except Exception as e:
+            # Send error metric
+            self._send_metric('SessionCreationError', 1.0, 'Count')
             logger.error(f"Failed to create liveness session: {str(e)}")
             raise LivenessServiceError(f"Failed to create liveness session: {str(e)}")
 
@@ -224,6 +237,8 @@ class LivenessService:
             
         Requirements: FR-1.4, FR-3
         """
+        start_time = datetime.now(timezone.utc)
+        
         try:
             # Check session exists in DynamoDB
             db_response = self.dynamodb.get_item(
@@ -232,6 +247,7 @@ class LivenessService:
             )
             
             if 'Item' not in db_response:
+                self._send_metric('SessionNotFound', 1.0, 'Count')
                 raise SessionNotFoundError(f"Session not found: {session_id}")
             
             item = db_response['Item']
@@ -239,6 +255,7 @@ class LivenessService:
             # Check if session has expired
             expires_at = int(item['expires_at']['N'])
             if datetime.now(timezone.utc).timestamp() > expires_at:
+                self._send_metric('SessionExpired', 1.0, 'Count')
                 raise SessionExpiredError(f"Session expired: {session_id}")
             
             # Get liveness session results from Rekognition
@@ -292,13 +309,18 @@ class LivenessService:
                 error_message=error_message
             )
             
+            # Send metrics
+            elapsed_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            self.send_liveness_metrics(session_id, result, elapsed_time)
+            
             logger.info(
                 f"Liveness verification completed",
                 extra={
                     'session_id': session_id,
                     'is_live': is_live,
                     'confidence': confidence,
-                    'status': final_status
+                    'status': final_status,
+                    'elapsed_time': elapsed_time
                 }
             )
             
@@ -307,6 +329,7 @@ class LivenessService:
         except (SessionNotFoundError, SessionExpiredError):
             raise
         except Exception as e:
+            self._send_metric('VerificationError', 1.0, 'Count')
             logger.error(f"Failed to get liveness session result: {str(e)}")
             raise LivenessServiceError(f"Failed to get liveness session result: {str(e)}")
 
@@ -322,6 +345,106 @@ class LivenessService:
             bool: 閾値以上の場合True
         """
         return confidence >= self.confidence_threshold
+    
+    def _send_metric(
+        self,
+        metric_name: str,
+        value: float,
+        unit: str = 'None',
+        dimensions: Optional[Dict[str, str]] = None
+    ) -> None:
+        """
+        CloudWatchメトリクスを送信
+        
+        Args:
+            metric_name: メトリクス名
+            value: メトリクス値
+            unit: 単位（Count, Percent, Seconds等）
+            dimensions: ディメンション（オプション）
+            
+        Requirements: NFR-3, Task 22
+        """
+        try:
+            metric_data = {
+                'MetricName': metric_name,
+                'Value': value,
+                'Unit': unit,
+                'Timestamp': datetime.now(timezone.utc)
+            }
+            
+            if dimensions:
+                metric_data['Dimensions'] = [
+                    {'Name': k, 'Value': v} for k, v in dimensions.items()
+                ]
+            
+            self.cloudwatch.put_metric_data(
+                Namespace='FaceAuth/Liveness',
+                MetricData=[metric_data]
+            )
+            
+            logger.debug(f"Metric sent: {metric_name}={value} {unit}")
+            
+        except Exception as e:
+            # メトリクス送信失敗はログのみ（処理は継続）
+            logger.warning(f"Failed to send metric {metric_name}: {str(e)}")
+    
+    def send_liveness_metrics(
+        self,
+        session_id: str,
+        result: LivenessSessionResult,
+        elapsed_time: float
+    ) -> None:
+        """
+        Liveness検証のメトリクスを送信
+        
+        Args:
+            session_id: セッションID
+            result: 検証結果
+            elapsed_time: 処理時間（秒）
+            
+        Requirements: NFR-3, Task 22
+        """
+        try:
+            # 成功/失敗カウント
+            self._send_metric(
+                'SessionCount',
+                1.0,
+                'Count',
+                {'Status': result.status}
+            )
+            
+            # 信頼度スコア
+            self._send_metric(
+                'ConfidenceScore',
+                result.confidence,
+                'Percent'
+            )
+            
+            # 検証時間
+            self._send_metric(
+                'VerificationTime',
+                elapsed_time,
+                'Seconds'
+            )
+            
+            # 成功率計算用
+            if result.is_live:
+                self._send_metric('SuccessCount', 1.0, 'Count')
+            else:
+                self._send_metric('FailureCount', 1.0, 'Count')
+            
+            logger.info(
+                f"Liveness metrics sent",
+                extra={
+                    'session_id': session_id,
+                    'status': result.status,
+                    'confidence': result.confidence,
+                    'elapsed_time': elapsed_time
+                }
+            )
+            
+        except Exception as e:
+            logger.warning(f"Failed to send liveness metrics: {str(e)}")
     
     def store_audit_log(
         self,

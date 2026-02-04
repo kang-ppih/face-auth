@@ -991,13 +991,15 @@ class FaceAuthStack(Stack):
             ("face-login", self.face_login_lambda), 
             ("emergency-auth", self.emergency_auth_lambda),
             ("re-enrollment", self.re_enrollment_lambda),
-            ("status", self.status_lambda)
+            ("status", self.status_lambda),
+            ("create-liveness-session", self.create_liveness_session_lambda),
+            ("get-liveness-result", self.get_liveness_result_lambda)
         ]
 
         self.log_groups = {}
         for name, lambda_func in lambda_functions:
             log_group = logs.LogGroup(
-                self, f"{name.title()}LogGroup",
+                self, f"{name.title().replace('-', '')}LogGroup",
                 log_group_name=f"/aws/lambda/{lambda_func.function_name}",
                 retention=logs.RetentionDays.ONE_MONTH,
                 removal_policy=RemovalPolicy.RETAIN
@@ -1010,6 +1012,156 @@ class FaceAuthStack(Stack):
             log_group_name="/aws/apigateway/face-auth-access-logs",
             retention=logs.RetentionDays.ONE_MONTH,
             removal_policy=RemovalPolicy.RETAIN
+        )
+        
+        # Create CloudWatch Alarms for Liveness monitoring
+        self._create_liveness_alarms()
+    
+    def _create_liveness_alarms(self):
+        """
+        Create CloudWatch Alarms for Liveness monitoring
+        Requirements: NFR-3, Task 23
+        """
+        from aws_cdk import aws_cloudwatch as cloudwatch
+        
+        # Liveness Success Rate Alarm (< 95%)
+        success_rate_alarm = cloudwatch.Alarm(
+            self, "LivenessSuccessRateAlarm",
+            alarm_name="FaceAuth-Liveness-LowSuccessRate",
+            alarm_description="Liveness success rate dropped below 95%",
+            metric=cloudwatch.Metric(
+                namespace="FaceAuth/Liveness",
+                metric_name="SuccessCount",
+                statistic="Sum",
+                period=Duration.minutes(5)
+            ),
+            threshold=0.95,
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Average Confidence Score Alarm (< 92%)
+        confidence_alarm = cloudwatch.Alarm(
+            self, "LivenessConfidenceAlarm",
+            alarm_name="FaceAuth-Liveness-LowConfidence",
+            alarm_description="Average liveness confidence dropped below 92%",
+            metric=cloudwatch.Metric(
+                namespace="FaceAuth/Liveness",
+                metric_name="ConfidenceScore",
+                statistic="Average",
+                period=Duration.minutes(5)
+            ),
+            threshold=92.0,
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Verification Time Alarm (> 30 seconds)
+        verification_time_alarm = cloudwatch.Alarm(
+            self, "LivenessVerificationTimeAlarm",
+            alarm_name="FaceAuth-Liveness-SlowVerification",
+            alarm_description="Liveness verification time exceeded 30 seconds",
+            metric=cloudwatch.Metric(
+                namespace="FaceAuth/Liveness",
+                metric_name="VerificationTime",
+                statistic="Average",
+                period=Duration.minutes(5)
+            ),
+            threshold=30.0,
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Error Rate Alarm (> 1%)
+        error_rate_alarm = cloudwatch.Alarm(
+            self, "LivenessErrorRateAlarm",
+            alarm_name="FaceAuth-Liveness-HighErrorRate",
+            alarm_description="Liveness error rate exceeded 1%",
+            metric=cloudwatch.Metric(
+                namespace="FaceAuth/Liveness",
+                metric_name="VerificationError",
+                statistic="Sum",
+                period=Duration.minutes(5)
+            ),
+            threshold=10,  # 10 errors in 5 minutes (assuming ~1000 requests)
+            evaluation_periods=1,
+            datapoints_to_alarm=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Session Creation Error Alarm
+        session_creation_error_alarm = cloudwatch.Alarm(
+            self, "LivenessSessionCreationErrorAlarm",
+            alarm_name="FaceAuth-Liveness-SessionCreationErrors",
+            alarm_description="High number of session creation errors",
+            metric=cloudwatch.Metric(
+                namespace="FaceAuth/Liveness",
+                metric_name="SessionCreationError",
+                statistic="Sum",
+                period=Duration.minutes(5)
+            ),
+            threshold=5,  # 5 errors in 5 minutes
+            evaluation_periods=1,
+            datapoints_to_alarm=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Lambda Error Alarms for Liveness functions
+        create_session_error_alarm = cloudwatch.Alarm(
+            self, "CreateLivenessSessionErrorAlarm",
+            alarm_name="FaceAuth-CreateLivenessSession-Errors",
+            alarm_description="CreateLivenessSession Lambda errors",
+            metric=self.create_liveness_session_lambda.metric_errors(),
+            threshold=5,
+            evaluation_periods=1,
+            datapoints_to_alarm=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        get_result_error_alarm = cloudwatch.Alarm(
+            self, "GetLivenessResultErrorAlarm",
+            alarm_name="FaceAuth-GetLivenessResult-Errors",
+            alarm_description="GetLivenessResult Lambda errors",
+            metric=self.get_liveness_result_lambda.metric_errors(),
+            threshold=5,
+            evaluation_periods=1,
+            datapoints_to_alarm=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        # Lambda Timeout Alarms
+        create_session_timeout_alarm = cloudwatch.Alarm(
+            self, "CreateLivenessSessionTimeoutAlarm",
+            alarm_name="FaceAuth-CreateLivenessSession-Timeouts",
+            alarm_description="CreateLivenessSession Lambda approaching timeout",
+            metric=self.create_liveness_session_lambda.metric_duration(),
+            threshold=9000,  # 9 seconds (10s timeout)
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        
+        get_result_timeout_alarm = cloudwatch.Alarm(
+            self, "GetLivenessResultTimeoutAlarm",
+            alarm_name="FaceAuth-GetLivenessResult-Timeouts",
+            alarm_description="GetLivenessResult Lambda approaching timeout",
+            metric=self.get_liveness_result_lambda.metric_duration(),
+            threshold=14000,  # 14 seconds (15s timeout)
+            evaluation_periods=2,
+            datapoints_to_alarm=2,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
         )
 
     def _create_outputs(self):
