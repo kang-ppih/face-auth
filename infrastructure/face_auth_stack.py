@@ -60,6 +60,8 @@ class FaceAuthStack(Stack):
 
         # Get allowed IP addresses from context or environment variable
         # Format: comma-separated CIDR blocks (e.g., "1.2.3.4/32,5.6.7.0/24")
+        # Note: This is used ONLY by AWS WAF for IP restriction
+        # Network ACL and API Gateway Resource Policy no longer use this variable
         allowed_ips_str = self.node.try_get_context("allowed_ips") or os.getenv("ALLOWED_IPS", "")
         self.allowed_ip_ranges = [ip.strip() for ip in allowed_ips_str.split(",") if ip.strip()]
         
@@ -69,6 +71,7 @@ class FaceAuthStack(Stack):
         
         # Get frontend origin for CORS
         # Format: comma-separated origins (e.g., "https://example.com,https://app.example.com")
+        # Note: This is used for S3 CORS configuration and API Gateway CORS settings
         frontend_origins_str = self.node.try_get_context("frontend_origins") or os.getenv("FRONTEND_ORIGINS", "")
         self.frontend_origins = [origin.strip() for origin in frontend_origins_str.split(",") if origin.strip()]
         
