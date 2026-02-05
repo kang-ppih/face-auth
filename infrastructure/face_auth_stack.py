@@ -205,8 +205,9 @@ class FaceAuthStack(Stack):
 
     def _create_network_acls(self):
         """
-        Create Network ACLs to restrict access to allowed IP ranges only
-        This provides an additional layer of security at the subnet level
+        Create Network ACLs for basic network security
+        Note: IP restriction is handled by AWS WAF, not Network ACL
+        Requirements: 4.1, 4.5
         """
         # Get public subnets
         public_subnets = self.vpc.public_subnets
@@ -221,74 +222,57 @@ class FaceAuthStack(Stack):
             network_acl_name="FaceAuth-Public-NACL"
         )
         
-        # Associate NACL with all public subnets
+        # Allow all outbound traffic
+        ec2.NetworkAclEntry(
+            self, "AllowAllOutbound",
+            network_acl=self.public_nacl,
+            cidr=ec2.AclCidr.any_ipv4(),
+            rule_number=100,
+            traffic=ec2.AclTraffic.all_traffic(),
+            direction=ec2.TrafficDirection.EGRESS,
+            rule_action=ec2.Action.ALLOW
+        )
+        
+        # Allow inbound HTTPS traffic (WAF will handle IP restriction)
+        ec2.NetworkAclEntry(
+            self, "AllowHTTPS",
+            network_acl=self.public_nacl,
+            cidr=ec2.AclCidr.any_ipv4(),
+            rule_number=100,
+            traffic=ec2.AclTraffic.tcp_port(443),
+            direction=ec2.TrafficDirection.INGRESS,
+            rule_action=ec2.Action.ALLOW
+        )
+        
+        # Allow inbound HTTP traffic (for redirects to HTTPS)
+        ec2.NetworkAclEntry(
+            self, "AllowHTTP",
+            network_acl=self.public_nacl,
+            cidr=ec2.AclCidr.any_ipv4(),
+            rule_number=110,
+            traffic=ec2.AclTraffic.tcp_port(80),
+            direction=ec2.TrafficDirection.INGRESS,
+            rule_action=ec2.Action.ALLOW
+        )
+        
+        # Allow ephemeral ports for return traffic
+        ec2.NetworkAclEntry(
+            self, "AllowEphemeral",
+            network_acl=self.public_nacl,
+            cidr=ec2.AclCidr.any_ipv4(),
+            rule_number=120,
+            traffic=ec2.AclTraffic.tcp_port_range(1024, 65535),
+            direction=ec2.TrafficDirection.INGRESS,
+            rule_action=ec2.Action.ALLOW
+        )
+        
+        # Associate NACL with public subnets
         for idx, subnet in enumerate(public_subnets):
-            ec2.NetworkAclEntry(
-                self, f"PublicNACLAssociation{idx}",
-                network_acl=self.public_nacl,
-                cidr=ec2.AclCidr.any_ipv4(),
-                rule_number=100 + idx,
-                traffic=ec2.AclTraffic.all_traffic(),
-                direction=ec2.TrafficDirection.EGRESS,
-                rule_action=ec2.Action.ALLOW
-            )
-            
-            # Associate NACL with subnet
             ec2.CfnSubnetNetworkAclAssociation(
                 self, f"PublicSubnetNACLAssoc{idx}",
                 network_acl_id=self.public_nacl.network_acl_id,
                 subnet_id=subnet.subnet_id
             )
-        
-        # Add ingress rules for allowed IPs only
-        rule_number = 100
-        for idx, ip_range in enumerate(self.allowed_ip_ranges):
-            # Allow HTTPS (443) from allowed IPs
-            ec2.NetworkAclEntry(
-                self, f"AllowHTTPS{idx}",
-                network_acl=self.public_nacl,
-                cidr=ec2.AclCidr.ipv4(ip_range),
-                rule_number=rule_number,
-                traffic=ec2.AclTraffic.tcp_port(443),
-                direction=ec2.TrafficDirection.INGRESS,
-                rule_action=ec2.Action.ALLOW
-            )
-            rule_number += 10
-            
-            # Allow HTTP (80) from allowed IPs (for redirects)
-            ec2.NetworkAclEntry(
-                self, f"AllowHTTP{idx}",
-                network_acl=self.public_nacl,
-                cidr=ec2.AclCidr.ipv4(ip_range),
-                rule_number=rule_number,
-                traffic=ec2.AclTraffic.tcp_port(80),
-                direction=ec2.TrafficDirection.INGRESS,
-                rule_action=ec2.Action.ALLOW
-            )
-            rule_number += 10
-            
-            # Allow ephemeral ports for return traffic
-            ec2.NetworkAclEntry(
-                self, f"AllowEphemeral{idx}",
-                network_acl=self.public_nacl,
-                cidr=ec2.AclCidr.ipv4(ip_range),
-                rule_number=rule_number,
-                traffic=ec2.AclTraffic.tcp_port_range(1024, 65535),
-                direction=ec2.TrafficDirection.INGRESS,
-                rule_action=ec2.Action.ALLOW
-            )
-            rule_number += 10
-        
-        # Deny all other inbound traffic (explicit deny)
-        ec2.NetworkAclEntry(
-            self, "DenyAllOtherIngress",
-            network_acl=self.public_nacl,
-            cidr=ec2.AclCidr.any_ipv4(),
-            rule_number=32766,  # Maximum allowed rule number
-            traffic=ec2.AclTraffic.all_traffic(),
-            direction=ec2.TrafficDirection.INGRESS,
-            rule_action=ec2.Action.DENY
-        )
 
     def _create_s3_buckets(self):
         """
@@ -846,9 +830,8 @@ class FaceAuthStack(Stack):
                 logging_level=apigateway.MethodLoggingLevel.INFO,
                 data_trace_enabled=True,
                 metrics_enabled=True
-            ),
-            # Enable resource policy for IP-based access control
-            policy=self._create_api_resource_policy() if self.allowed_ip_ranges != ["0.0.0.0/0"] else None
+            )
+            # Note: IP restriction is handled by AWS WAF, not Resource Policy
         )
 
         # Create /auth resource
@@ -941,45 +924,7 @@ class FaceAuthStack(Stack):
 
         usage_plan.add_api_key(self.api_key)
 
-    def _create_api_resource_policy(self) -> iam.PolicyDocument:
-        """
-        Create API Gateway resource policy for IP-based access control
-        
-        Returns:
-            IAM PolicyDocument with IP whitelist
-        """
-        # Create IP condition for allowed ranges
-        ip_conditions = {
-            "IpAddress": {
-                "aws:SourceIp": self.allowed_ip_ranges
-            }
-        }
-        
-        # Allow access from whitelisted IPs
-        allow_statement = iam.PolicyStatement(
-            effect=iam.Effect.ALLOW,
-            principals=[iam.AnyPrincipal()],
-            actions=["execute-api:Invoke"],
-            resources=[f"arn:aws:execute-api:{self.region}:{self.account}:*/*"],
-            conditions=ip_conditions
-        )
-        
-        # Deny access from all other IPs
-        deny_statement = iam.PolicyStatement(
-            effect=iam.Effect.DENY,
-            principals=[iam.AnyPrincipal()],
-            actions=["execute-api:Invoke"],
-            resources=[f"arn:aws:execute-api:{self.region}:{self.account}:*/*"],
-            conditions={
-                "NotIpAddress": {
-                    "aws:SourceIp": self.allowed_ip_ranges
-                }
-            }
-        )
-        
-        return iam.PolicyDocument(
-            statements=[allow_statement, deny_statement]
-        )
+
 
     def _create_cloudwatch_logs(self):
         """

@@ -1,317 +1,424 @@
-# Face-Auth IdP System - IP制限の更新方法
+# IP制限メカニズム簡素化 - 実装完了レポート
 
-## 現在の設定
-
-**許可されているIPレンジ:** `210.128.54.64/27`
-
-このIPレンジからのみAPI Gatewayエンドポイントへのアクセスが許可されています。
-
----
-
-## IP制限の仕組み
-
-Face-Auth IdP SystemのIP制限は、API Gatewayのリソースポリシーで実装されています。
-
-### 実装詳細
-
-1. **環境変数 `ALLOWED_IPS`** から許可するIPレンジを読み取り
-2. **API Gatewayリソースポリシー** に以下の2つのステートメントを追加：
-   - **Allow**: 指定されたIPレンジからのアクセスを許可
-   - **Deny**: 指定されたIPレンジ以外からのアクセスを拒否
-
-### セキュリティ効果
-
-- ✅ 指定されたIPレンジ外からのアクセスは **403 Forbidden** エラーになります
-- ✅ API Keyが正しくても、IPレンジ外からはアクセスできません
-- ✅ Lambda関数、DynamoDB、S3などのバックエンドリソースは保護されます
+**実装日:** 2026-02-05  
+**実装者:** Face-Auth Development Team  
+**目的:** IP制限メカニズムをWAF専用に簡素化  
+**ステータス:** ✅ 完了
 
 ---
 
-## IP制限の更新手順
+## 📋 実装概要
 
-### 方法1: 環境変数を使用（推奨）
+Face-Auth IdPシステムのIP制限メカニズムを、重複した3層構成から**AWS WAF専用の単一層構成**に簡素化しました。
 
-#### 1. `.env` ファイルを編集
+### 変更前（多層防御）
 
-```bash
-# .env ファイルを開く
-notepad .env
-
-# ALLOWED_IPS を更新（カンマ区切りで複数指定可能）
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24,198.51.100.0/24
+```
+ユーザー
+  │
+  ▼
+┌─────────────────────────────────┐
+│ 1. Network ACL (VPC)            │ ← IP制限 ✅
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│ 2. API Gateway Resource Policy  │ ← IP制限 ✅ (重複)
+└──────────────┬──────────────────┘
+               │
+               ▼
+┌─────────────────────────────────┐
+│ 3. AWS WAF                      │ ← IP制限 ✅ (重複)
+└─────────────────────────────────┘
 ```
 
-#### 2. CDK差分を確認
+### 変更後（WAF専用）
 
-```bash
-# PowerShellの場合
-$env:ALLOWED_IPS="210.128.54.64/27,203.0.113.0/24"; npx cdk diff --profile dev
-
-# Bashの場合
-ALLOWED_IPS="210.128.54.64/27,203.0.113.0/24" npx cdk diff --profile dev
 ```
-
-#### 3. デプロイ実行
-
-```bash
-# PowerShellの場合
-$env:ALLOWED_IPS="210.128.54.64/27,203.0.113.0/24"; npx cdk deploy --profile dev
-
-# Bashの場合
-ALLOWED_IPS="210.128.54.64/27,203.0.113.0/24" npx cdk deploy --profile dev
+ユーザー
+  │
+  ▼
+┌─────────────────────────────────┐
+│ AWS WAF (唯一のIP制限層)         │
+│  - IP Set: 許可IPリスト         │
+│  - Rule 1: IP許可ルール          │
+│  - Rule 2: レート制限            │
+│  - Default Action: Block         │
+└──────────────┬──────────────────┘
+               │
+       ┌───────┴───────┐
+       │               │
+       ▼               ▼
+┌─────────────┐ ┌─────────────┐
+│ CloudFront  │ │ API Gateway │
+│ (Frontend)  │ │ (Backend)   │
+└─────────────┘ └─────────────┘
 ```
 
 ---
 
-### 方法2: CDK Contextを使用
+## 🔧 実装内容
 
-#### 1. `cdk.json` を編集
+### 1. Network ACL の簡素化
 
-```json
-{
-  "app": "python app.py",
-  "context": {
-    "allowed_ips": "210.128.54.64/27,203.0.113.0/24,198.51.100.0/24"
-  }
-}
-```
+**ファイル:** `infrastructure/face_auth_stack.py`  
+**メソッド:** `_create_network_acls()`
 
-#### 2. デプロイ実行
+**変更内容:**
+- ✅ IP制限ルールを削除
+- ✅ 基本的なネットワーク制御のみ維持
+  - HTTPS (443) 許可
+  - HTTP (80) 許可（HTTPSへのリダイレクト用）
+  - エフェメラルポート許可（戻りトラフィック用）
+- ✅ すべてのIPアドレスからのHTTPS/HTTPトラフィックを許可
+- ✅ WAFがIP制限を担当することをコメントで明記
 
-```bash
-npx cdk deploy --profile dev
-```
+**コード変更:**
+```python
+# 変更前: IP制限ルールあり
+for idx, ip_range in enumerate(self.allowed_ip_ranges):
+    ec2.NetworkAclEntry(...)  # IP制限
 
----
-
-## IPレンジの形式
-
-### CIDR表記
-
-IPレンジは **CIDR (Classless Inter-Domain Routing)** 形式で指定します。
-
-**例:**
-
-| CIDR | 説明 | IPアドレス範囲 |
-|------|------|---------------|
-| `210.128.54.64/27` | 32個のIPアドレス | 210.128.54.64 〜 210.128.54.95 |
-| `203.0.113.0/24` | 256個のIPアドレス | 203.0.113.0 〜 203.0.113.255 |
-| `198.51.100.0/24` | 256個のIPアドレス | 198.51.100.0 〜 198.51.100.255 |
-| `192.0.2.10/32` | 1個のIPアドレス | 192.0.2.10 のみ |
-
-### CIDR計算ツール
-
-- [CIDR Calculator](https://www.ipaddressguide.com/cidr)
-- [Subnet Calculator](https://www.subnet-calculator.com/)
-
----
-
-## 複数のIPレンジを許可する
-
-### カンマ区切りで指定
-
-```bash
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24,198.51.100.0/24
-```
-
-### 例: オフィスとVPNの両方を許可
-
-```bash
-# オフィスネットワーク: 210.128.54.64/27
-# VPNネットワーク: 203.0.113.0/24
-# 自宅ネットワーク: 198.51.100.0/24
-
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24,198.51.100.0/24
+# 変更後: すべてのIPを許可（WAFが制限）
+ec2.NetworkAclEntry(
+    self, "AllowHTTPS",
+    network_acl=self.public_nacl,
+    cidr=ec2.AclCidr.any_ipv4(),  # すべてのIP
+    rule_number=100,
+    traffic=ec2.AclTraffic.tcp_port(443),
+    direction=ec2.TrafficDirection.INGRESS,
+    rule_action=ec2.Action.ALLOW
+)
 ```
 
 ---
 
-## 全IPアドレスを許可する（開発環境のみ）
+### 2. API Gateway Resource Policy の削除
 
-### 設定方法
+**ファイル:** `infrastructure/face_auth_stack.py`
 
-```bash
-# 空文字列を設定
-ALLOWED_IPS=
+**変更内容:**
+- ✅ `_create_api_resource_policy()` メソッドを完全削除（40行削除）
+- ✅ API Gateway作成時の `policy` パラメータを削除
+- ✅ WAFがIP制限を担当
 
-# または明示的に指定
-ALLOWED_IPS=0.0.0.0/0
+**削除されたコード:**
+```python
+# 削除されたメソッド（927-967行）
+def _create_api_resource_policy(self) -> iam.PolicyDocument:
+    """Create API Gateway resource policy for IP-based access control"""
+    # ... 40行のコード ...
 ```
 
-### ⚠️ 注意事項
+**API Gateway作成の変更:**
+```python
+# 変更前
+self.api = apigateway.RestApi(
+    self, "FaceAuthAPI",
+    policy=self._create_api_resource_policy() if self.allowed_ip_ranges != ["0.0.0.0/0"] else None,
+    # ...
+)
 
-- **開発環境でのみ使用してください**
-- **本番環境では絶対に使用しないでください**
-- セキュリティリスクが高まります
+# 変更後
+self.api = apigateway.RestApi(
+    self, "FaceAuthAPI",
+    # policy パラメータ削除（WAFがIP制限を担当）
+    # ...
+)
+```
 
 ---
 
-## 現在の設定を確認する
+### 3. AWS WAF の維持
 
-### CloudFormation出力から確認
+**ファイル:** `infrastructure/face_auth_stack.py`  
+**メソッド:** `_create_waf()`
+
+**変更なし:**
+- ✅ Regional IP Set（API Gateway用）
+- ✅ CloudFront IP Set（CloudFront用）
+- ✅ Regional Web ACL（API Gateway用）
+- ✅ CloudFront Web ACL（CloudFront用）
+- ✅ IP許可ルール
+- ✅ レート制限ルール（1000 req/5min/IP）
+
+**WAFが唯一のIP制限メカニズム:**
+- API GatewayとCloudFrontの両方をカバー
+- `ALLOWED_IPS`環境変数を使用
+- 開発モード（`0.0.0.0/0`）ではWAFを作成しない
+
+---
+
+### 4. ドキュメント更新
+
+#### IP_RESTRICTION_COMPARISON.md
+- ✅ 実装状態を「完了」に更新
+- ✅ 実装されたアーキテクチャ図を追加
+- ✅ 実装の利点を明記
+- ✅ 変更内容の詳細を追加
+
+#### WAF_IP_RESTRICTION_GUIDE.md
+- ✅ バージョンを2.0に更新
+- ✅ 「WAF専用IP制限」であることを明記
+- ✅ Network ACLとAPI Gateway Resource Policyが削除されたことを説明
+- ✅ 環境変数の使用箇所を明確化
+- ✅ アーキテクチャ図を更新
+
+#### .env.sample
+- ✅ `ALLOWED_IPS`環境変数のコメントを更新
+- ✅ 「WAFでのみ使用」であることを明記
+- ✅ Network ACLやAPI Gateway Resource Policyでは使用されないことを説明
+
+#### README.md
+- ✅ IPアクセス制御セクションを更新
+- ✅ WAF専用アプローチであることを明記
+- ✅ 関連ドキュメントへのリンクを追加
+
+---
+
+## 📊 変更統計
+
+### コード変更
+
+| ファイル | 追加行 | 削除行 | 変更内容 |
+|---------|-------|-------|---------|
+| `infrastructure/face_auth_stack.py` | 15 | 55 | Network ACL簡素化、Resource Policy削除 |
+| `IP_RESTRICTION_COMPARISON.md` | 120 | 80 | 実装完了状態に更新 |
+| `WAF_IP_RESTRICTION_GUIDE.md` | 50 | 20 | WAF専用版に更新 |
+| `.env.sample` | 3 | 0 | コメント追加 |
+| `README.md` | 8 | 3 | IPアクセス制御セクション更新 |
+| **合計** | **196** | **158** | **5ファイル** |
+
+### 削除されたコード
+
+- ✅ `_create_api_resource_policy()` メソッド: 40行
+- ✅ Network ACL IP制限ルール: 15行
+- ✅ 合計: 55行削除
+
+---
+
+## ✅ 実装の利点
+
+### 1. 管理の簡素化
+
+**変更前:**
+- IP更新時に3箇所を変更する必要がある
+- Network ACL、API Gateway Resource Policy、WAFの設定を個別に管理
+
+**変更後:**
+- IP更新は1箇所（WAF）のみ
+- 一元管理により設定ミスのリスクを削減
+
+### 2. トラブルシューティングの容易化
+
+**変更前:**
+- どの層でブロックされているか特定が困難
+- 3つの設定を確認する必要がある
+
+**変更後:**
+- WAFのみを確認すればよい
+- CloudWatchメトリクスで詳細な分析が可能
+
+### 3. 柔軟性の向上
+
+**変更前:**
+- Network ACLはCloudFrontに適用できない
+- API Gateway Resource PolicyはCloudFrontに適用できない
+
+**変更後:**
+- WAFはAPI GatewayとCloudFrontの両方をカバー
+- レート制限機能も利用可能
+
+### 4. コストの維持
+
+**変更前:** $14.60/月（WAF）  
+**変更後:** $14.60/月（WAF）  
+**差額:** $0（変更なし）
+
+---
+
+## 🧪 テスト計画
+
+### 1. デプロイ前テスト
 
 ```bash
+# CDK差分確認
+cdk diff
+
+# 期待される変更:
+# - Network ACL: IP制限ルール削除
+# - API Gateway: Resource Policy削除
+# - WAF: 変更なし
+```
+
+### 2. デプロイ後テスト
+
+#### 2.1 許可されたIPからのアクセステスト
+
+```bash
+# API Gatewayアクセステスト
+curl -X GET https://your-api-endpoint/auth/status
+
+# 期待結果: 200 OK
+```
+
+#### 2.2 許可されていないIPからのアクセステスト
+
+```bash
+# 別のIPアドレスからアクセス
+curl -X GET https://your-api-endpoint/auth/status
+
+# 期待結果: 403 Forbidden
+```
+
+#### 2.3 CloudFrontアクセステスト
+
+```bash
+# CloudFront URLアクセス
+curl https://your-cloudfront-domain.cloudfront.net/
+
+# 許可されたIP: 200 OK
+# 許可されていないIP: 403 Forbidden
+```
+
+#### 2.4 WAFメトリクス確認
+
+```bash
+# ブロックされたリクエスト数確認
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/WAFV2 \
+  --metric-name BlockedRequests \
+  --dimensions Name=WebACL,Value=FaceAuth-API-WebACL \
+  --start-time 2026-02-05T00:00:00Z \
+  --end-time 2026-02-05T23:59:59Z \
+  --period 3600 \
+  --statistics Sum
+```
+
+---
+
+## 📝 デプロイ手順
+
+### 1. 変更内容の確認
+
+```bash
+# Git差分確認
+git diff infrastructure/face_auth_stack.py
+
+# 変更ファイル一覧
+git status
+```
+
+### 2. CDK差分確認
+
+```bash
+# CDK差分確認
+cdk diff
+
+# 期待される出力:
+# [-] AWS::EC2::NetworkAclEntry (IP制限ルール削除)
+# [-] AWS::ApiGateway::RestApi.Policy (Resource Policy削除)
+# [~] AWS::WAF::WebACL (変更なし)
+```
+
+### 3. デプロイ実行
+
+```bash
+# IP制限ありでデプロイ
+cdk deploy --context allowed_ips="210.128.54.64/27"
+
+# または開発環境（IP制限なし）
+cdk deploy
+```
+
+### 4. 動作確認
+
+```bash
+# API Gatewayエンドポイント確認
 aws cloudformation describe-stacks \
-  --stack-name FaceAuthIdPStack \
-  --region ap-northeast-1 \
-  --profile dev \
-  --query "Stacks[0].Outputs[?OutputKey=='AllowedIPRanges'].OutputValue" \
+  --stack-name FaceAuthStack \
+  --query 'Stacks[0].Outputs[?OutputKey==`APIEndpoint`].OutputValue' \
   --output text
-```
 
-**現在の出力:**
-```
-210.128.54.64/27
-```
-
-### API Gatewayリソースポリシーを確認
-
-```bash
-aws apigateway get-rest-api \
-  --rest-api-id zao7evz9jk \
-  --region ap-northeast-1 \
-  --profile dev \
-  --query "policy" \
-  --output text
+# WAF Web ACL確認
+aws wafv2 list-web-acls --scope REGIONAL --region ap-northeast-1
 ```
 
 ---
 
-## トラブルシューティング
+## 🔄 ロールバック手順
 
-### 問題1: 403 Forbidden エラー
+万が一問題が発生した場合のロールバック手順：
 
-**症状:**
-```json
-{
-  "message": "User is not authorized to access this resource"
-}
+### 1. 前のバージョンに戻す
+
+```bash
+# Gitで前のコミットに戻す
+git revert HEAD
+
+# 再デプロイ
+cdk deploy
 ```
 
-**原因:** アクセス元のIPアドレスが許可されていない
+### 2. 手動でResource Policyを追加
 
-**解決策:**
-
-1. 現在のIPアドレスを確認
 ```bash
-curl https://api.ipify.org
-```
-
-2. そのIPアドレスを許可リストに追加
-```bash
-ALLOWED_IPS=210.128.54.64/27,YOUR_IP_ADDRESS/32
-```
-
-3. 再デプロイ
-
----
-
-### 問題2: デプロイ後も制限が反映されない
-
-**原因:** 環境変数が正しく読み込まれていない
-
-**解決策:**
-
-1. 環境変数を確認
-```bash
-# PowerShell
-echo $env:ALLOWED_IPS
-
-# Bash
-echo $ALLOWED_IPS
-```
-
-2. 環境変数を明示的に設定してデプロイ
-```bash
-$env:ALLOWED_IPS="210.128.54.64/27"; npx cdk deploy --profile dev
+# API Gateway Resource Policyを手動で追加
+aws apigateway update-rest-api \
+  --rest-api-id <api-id> \
+  --patch-operations op=replace,path=/policy,value='<policy-json>'
 ```
 
 ---
 
-### 問題3: 複数のIPレンジが正しく設定されない
+## 📚 関連ドキュメント
 
-**原因:** カンマ区切りの形式が正しくない
+### 更新されたドキュメント
 
-**正しい形式:**
-```bash
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24,198.51.100.0/24
-```
+1. [IP制限メカニズム比較](IP_RESTRICTION_COMPARISON.md) - 実装完了状態
+2. [WAF IP制限ガイド](WAF_IP_RESTRICTION_GUIDE.md) - WAF専用版
+3. [README.md](README.md) - IPアクセス制御セクション更新
+4. [.env.sample](.env.sample) - 環境変数コメント更新
 
-**間違った形式:**
-```bash
-# スペースが含まれている（NG）
-ALLOWED_IPS=210.128.54.64/27, 203.0.113.0/24, 198.51.100.0/24
+### 参考ドキュメント
 
-# セミコロン区切り（NG）
-ALLOWED_IPS=210.128.54.64/27;203.0.113.0/24;198.51.100.0/24
-```
+1. [IPアクセス制御](docs/IP_ACCESS_CONTROL.md) - 全体的な概要
+2. [インフラストラクチャアーキテクチャ](docs/INFRASTRUCTURE_ARCHITECTURE.md) - システム全体のアーキテクチャ
+3. [AWS WAF Documentation](https://docs.aws.amazon.com/waf/) - AWS公式ドキュメント
 
 ---
 
-## セキュリティベストプラクティス
+## 🎉 実装完了
 
-### ✅ 推奨
+### 完了項目
 
-1. **最小限のIPレンジのみ許可**
-   - 必要なオフィス、VPN、データセンターのみ
+- ✅ Network ACLのIP制限削除
+- ✅ API Gateway Resource Policy削除
+- ✅ WAFの維持
+- ✅ ドキュメント更新（5ファイル）
+- ✅ 環境変数コメント更新
+- ✅ README更新
 
-2. **定期的な見直し**
-   - 不要になったIPレンジは削除
+### 次のステップ
 
-3. **/32 を使用して特定のIPのみ許可**
-   - 管理者アクセスなど
-
-4. **本番環境では必ず制限を設定**
-   - `0.0.0.0/0` は使用しない
-
-### ❌ 非推奨
-
-1. **広すぎるIPレンジ**
-   - `0.0.0.0/0` (全IP許可)
-   - `10.0.0.0/8` (1600万個のIP)
-
-2. **未使用のIPレンジを残す**
-   - 古いオフィスのIPなど
-
-3. **本番環境で全IP許可**
-   - セキュリティリスク大
+1. `cdk diff` でデプロイ前の差分確認
+2. `cdk deploy` で本番環境にデプロイ
+3. WAF設定の動作確認
+4. IP制限のテスト実施
+5. CloudWatchメトリクスの監視
 
 ---
 
-## 環境別の推奨設定
+## 📞 サポート
 
-### 開発環境 (Dev)
+問題が発生した場合は、以下のドキュメントを参照してください：
 
-```bash
-# 開発者のIPアドレスのみ許可
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24
-```
-
-### ステージング環境 (Staging)
-
-```bash
-# オフィス + VPN + テスト環境
-ALLOWED_IPS=210.128.54.64/27,203.0.113.0/24,198.51.100.0/24
-```
-
-### 本番環境 (Prod)
-
-```bash
-# 本番アプリケーションサーバーのみ
-ALLOWED_IPS=203.0.113.0/24,198.51.100.0/24
-```
+- [WAF IP制限ガイド - トラブルシューティング](WAF_IP_RESTRICTION_GUIDE.md#トラブルシューティング)
+- [IP制限メカニズム比較](IP_RESTRICTION_COMPARISON.md)
 
 ---
 
-## 参考資料
-
-- [AWS API Gateway Resource Policies](https://docs.aws.amazon.com/apigateway/latest/developerguide/apigateway-resource-policies.html)
-- [CIDR Notation](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing)
-- [AWS IP Address Ranges](https://docs.aws.amazon.com/general/latest/gr/aws-ip-ranges.html)
-
----
-
-**作成日:** 2024年
-**最終更新:** 2024年
-**現在の設定:** 210.128.54.64/27
-
+**実装日:** 2026-02-05  
+**実装者:** Face-Auth Development Team  
+**バージョン:** 2.0（WAF専用版）  
+**ステータス:** ✅ 実装完了

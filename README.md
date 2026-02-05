@@ -67,6 +67,8 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
    
    特定のIPアドレスからのみAPIアクセスを許可する場合：
    
+   **重要:** IP制限はAWS WAFでのみ実装されています。Network ACLやAPI Gateway Resource Policyによる重複した制限は削除されました。
+   
    ```bash
    # 単一IPアドレスを許可
    cdk deploy --context allowed_ips="203.0.113.10/32"
@@ -78,7 +80,10 @@ AWS基盤のFace-Auth Identity Providerシステムは、社員証ベースの�
    cdk deploy --context allowed_ips="10.0.0.0/8"
    ```
    
-   詳細は [IPアクセス制御ドキュメント](docs/IP_ACCESS_CONTROL.md) を参照してください。
+   詳細は以下のドキュメントを参照してください：
+   - [WAF IP制限ガイド](WAF_IP_RESTRICTION_GUIDE.md) - WAF設定の詳細
+   - [IP制限メカニズム比較](IP_RESTRICTION_COMPARISON.md) - WAF専用アプローチの説明
+   - [IPアクセス制御ドキュメント](docs/IP_ACCESS_CONTROL.md) - 全体的な概要
 
 4. **CORS設定（オプション）**
    

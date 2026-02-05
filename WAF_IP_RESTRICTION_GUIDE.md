@@ -1,20 +1,24 @@
 # AWS WAF IP制限設定ガイド
 
 **作成日:** 2026-02-04  
-**バージョン:** 1.0  
-**対象:** API Gateway、CloudFront
+**更新日:** 2026-02-05  
+**バージョン:** 2.0  
+**対象:** API Gateway、CloudFront  
+**実装状態:** ✅ WAF専用IP制限（唯一のIP制限メカニズム）
 
 ---
 
 ## 概要
 
-このガイドでは、Face-Auth IdPシステムのAPI GatewayとCloudFrontにAWS WAFを使用してIP制限を実装する方法を説明します。
+このガイドでは、Face-Auth IdPシステムのAPI GatewayとCloudFrontに**AWS WAFを使用した唯一のIP制限メカニズム**を説明します。
+
+**重要:** このシステムでは、IP制限はWAFでのみ実装されています。Network ACLやAPI Gateway Resource Policyによる重複したIP制限は削除されました。
 
 ---
 
 ## アーキテクチャ
 
-### WAF構成
+### WAF構成（唯一のIP制限層)
 
 ```
 ┌─────────────────────────────────────────┐
@@ -23,7 +27,7 @@
                │
                ▼
 ┌─────────────────────────────────────────┐
-│  AWS WAF (IP Set + Web ACL)             │
+│  AWS WAF (唯一のIP制限層)               │
 │  - IP Set: 許可IPリスト                 │
 │  - Rule 1: IP許可ルール                 │
 │  - Rule 2: レート制限 (1000 req/5min)   │
@@ -38,6 +42,11 @@
 │ (Frontend)  │ │ (Backend)   │
 └─────────────┘ └─────────────┘
 ```
+
+**注意:**
+- Network ACLは基本的なネットワーク制御のみ（HTTPS/HTTP許可）
+- API Gateway Resource Policyは削除済み
+- **WAFがすべてのIP制限を担当**
 
 ---
 
@@ -83,7 +92,26 @@
 
 ---
 
-## デプロイ方法
+## 環境変数設定
+
+### ALLOWED_IPS環境変数
+
+**重要:** この環境変数は**WAFでのみ**使用されます。
+
+```bash
+# .env または .env.sample
+# WAF IP制限設定（カンマ区切りのCIDR形式）
+# この環境変数はWAFでのみ使用されます
+ALLOWED_IPS=203.0.113.10/32,198.51.100.0/24
+
+# または開発環境では空にする（すべてのIPを許可）
+# ALLOWED_IPS=
+```
+
+**使用箇所:**
+- ✅ AWS WAF IP Set作成
+- ❌ Network ACL（削除済み）
+- ❌ API Gateway Resource Policy（削除済み）
 
 ### 1. IP制限なし（開発モード）
 
