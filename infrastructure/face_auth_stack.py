@@ -770,6 +770,7 @@ class FaceAuthStack(Stack):
             description="Create Rekognition Liveness session for face verification",
             code=lambda_.Code.from_asset("lambda/liveness"),
             handler="create_session_handler.handler",
+            runtime=lambda_.Runtime.PYTHON_3_9,
             timeout=Duration.seconds(10),  # 10-second timeout
             memory_size=256,
             role=self.lambda_execution_role,
@@ -790,6 +791,7 @@ class FaceAuthStack(Stack):
             description="Get and evaluate Rekognition Liveness session results",
             code=lambda_.Code.from_asset("lambda/liveness"),
             handler="get_result_handler.handler",
+            runtime=lambda_.Runtime.PYTHON_3_9,
             timeout=Duration.seconds(15),  # 15-second timeout
             memory_size=256,
             role=self.lambda_execution_role,
