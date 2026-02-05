@@ -2,27 +2,40 @@
 
 **作成日:** 2026-02-04  
 **更新日:** 2026-02-05  
-**バージョン:** 2.0  
-**対象:** API Gateway、CloudFront  
-**実装状態:** ✅ WAF専用IP制限（唯一のIP制限メカニズム）
+**バージョン:** 2.1  
+**対象:** API Gateway（バックエンドのみ）  
+**実装状態:** ✅ WAF専用IP制限（API Gatewayのみ）
 
 ---
 
 ## 概要
 
-このガイドでは、Face-Auth IdPシステムのAPI GatewayとCloudFrontに**AWS WAFを使用した唯一のIP制限メカニズム**を説明します。
+このガイドでは、Face-Auth IdPシステムの**API Gateway**に**AWS WAFを使用したIP制限メカニズム**を説明します。
 
-**重要:** このシステムでは、IP制限はWAFでのみ実装されています。Network ACLやAPI Gateway Resource Policyによる重複したIP制限は削除されました。
+**重要な変更点:**
+- ✅ **API Gateway（バックエンド）:** WAFによるIP制限あり（`ap-northeast-1`リージョン）
+- ❌ **CloudFront（フロントエンド）:** IP制限なし
+
+**理由:**
+- CloudFront用WAFは`us-east-1`リージョンにのみ作成可能（AWS仕様）
+- 単一CDKスタックでの複数リージョン管理の複雑さを避けるため
+- API Gatewayのみに制限を適用することでシンプルな構成を実現
 
 ---
 
 ## アーキテクチャ
 
-### WAF構成（唯一のIP制限層)
+### WAF構成（API Gatewayのみ）
 
 ```
 ┌─────────────────────────────────────────┐
-│  ユーザー（許可されたIPアドレス）        │
+│  ユーザー（任意のIPアドレス）            │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│  CloudFront (Frontend)                  │
+│  ❌ IP制限なし                          │
 └──────────────┬──────────────────────────┘
                │
                ▼
@@ -32,21 +45,20 @@
 │  - Rule 1: IP許可ルール                 │
 │  - Rule 2: レート制限 (1000 req/5min)   │
 │  - Default Action: Block                │
+│  - Region: ap-northeast-1               │
 └──────────────┬──────────────────────────┘
                │
-       ┌───────┴───────┐
-       │               │
-       ▼               ▼
-┌─────────────┐ ┌─────────────┐
-│ CloudFront  │ │ API Gateway │
-│ (Frontend)  │ │ (Backend)   │
-└─────────────┘ └─────────────┘
+               ▼
+┌─────────────────────────────────────────┐
+│  API Gateway (Backend)                  │
+│  ✅ IP制限あり（WAF）                   │
+└─────────────────────────────────────────┘
 ```
 
 **注意:**
 - Network ACLは基本的なネットワーク制御のみ（HTTPS/HTTP許可）
 - API Gateway Resource Policyは削除済み
-- **WAFがすべてのIP制限を担当**
+- **WAFがすべてのIP制限を担当（API Gatewayのみ）**
 
 ---
 
@@ -54,37 +66,25 @@
 
 ### 1. IP Set（IPアドレスセット）
 
-**2つのIP Setを作成:**
+**1つのIP Setを作成:**
 
 #### Regional IP Set（API Gateway用）
 - **名前:** `FaceAuth-AllowedIPs`
 - **スコープ:** `REGIONAL`
+- **リージョン:** `ap-northeast-1`
 - **用途:** API Gateway用
-- **IPアドレス:** `allowed_ips`コンテキストから取得
-
-#### CloudFront IP Set（CloudFront用）
-- **名前:** `FaceAuth-AllowedIPs-CloudFront`
-- **スコープ:** `CLOUDFRONT`
-- **用途:** CloudFront用（us-east-1リージョン必須）
 - **IPアドレス:** `allowed_ips`コンテキストから取得
 
 ---
 
 ### 2. Web ACL（ウェブアクセス制御リスト）
 
-**2つのWeb ACLを作成:**
+**1つのWeb ACLを作成:**
 
 #### API Gateway Web ACL
 - **名前:** `FaceAuth-API-WebACL`
 - **スコープ:** `REGIONAL`
-- **デフォルトアクション:** Block（ブロック）
-- **ルール:**
-  1. **AllowListedIPs** (Priority 1): 許可IPからのリクエストを許可
-  2. **RateLimitRule** (Priority 2): レート制限（1000リクエスト/5分/IP）
-
-#### CloudFront Web ACL
-- **名前:** `FaceAuth-CloudFront-WebACL`
-- **スコープ:** `CLOUDFRONT`
+- **リージョン:** `ap-northeast-1`
 - **デフォルトアクション:** Block（ブロック）
 - **ルール:**
   1. **AllowListedIPs** (Priority 1): 許可IPからのリクエストを許可
@@ -96,12 +96,12 @@
 
 ### ALLOWED_IPS環境変数
 
-**重要:** この環境変数は**WAFでのみ**使用されます。
+**重要:** この環境変数は**WAF（API Gateway用）でのみ**使用されます。
 
 ```bash
 # .env または .env.sample
 # WAF IP制限設定（カンマ区切りのCIDR形式）
-# この環境変数はWAFでのみ使用されます
+# この環境変数はWAF（API Gateway用）でのみ使用されます
 ALLOWED_IPS=203.0.113.10/32,198.51.100.0/24
 
 # または開発環境では空にする（すべてのIPを許可）
@@ -109,9 +109,14 @@ ALLOWED_IPS=203.0.113.10/32,198.51.100.0/24
 ```
 
 **使用箇所:**
-- ✅ AWS WAF IP Set作成
+- ✅ AWS WAF IP Set作成（API Gateway用）
+- ❌ CloudFront WAF（削除済み）
 - ❌ Network ACL（削除済み）
 - ❌ API Gateway Resource Policy（削除済み）
+
+---
+
+## デプロイ方法
 
 ### 1. IP制限なし（開発モード）
 
@@ -174,17 +179,14 @@ cdk deploy --context allowed_ips="10.0.0.0/8"
 
 ```bash
 # Regional IP Set確認
-aws wafv2 list-ip-sets --scope REGIONAL --region us-east-1
-
-# CloudFront IP Set確認（us-east-1リージョン必須）
-aws wafv2 list-ip-sets --scope CLOUDFRONT --region us-east-1
+aws wafv2 list-ip-sets --scope REGIONAL --region ap-northeast-1
 
 # IP Set詳細確認
 aws wafv2 get-ip-set \
   --scope REGIONAL \
   --id <ip-set-id> \
   --name FaceAuth-AllowedIPs \
-  --region us-east-1
+  --region ap-northeast-1
 ```
 
 ---
@@ -193,17 +195,14 @@ aws wafv2 get-ip-set \
 
 ```bash
 # Regional Web ACL確認（API Gateway用）
-aws wafv2 list-web-acls --scope REGIONAL --region us-east-1
-
-# CloudFront Web ACL確認
-aws wafv2 list-web-acls --scope CLOUDFRONT --region us-east-1
+aws wafv2 list-web-acls --scope REGIONAL --region ap-northeast-1
 
 # Web ACL詳細確認
 aws wafv2 get-web-acl \
   --scope REGIONAL \
   --id <web-acl-id> \
   --name FaceAuth-API-WebACL \
-  --region us-east-1
+  --region ap-northeast-1
 ```
 
 ---
@@ -216,17 +215,6 @@ aws apigateway get-stage \
   --rest-api-id <api-id> \
   --stage-name prod \
   --query 'webAclArn'
-```
-
----
-
-### 4. CloudFront関連付け確認
-
-```bash
-# CloudFront DistributionのWeb ACL確認
-aws cloudfront get-distribution \
-  --id <distribution-id> \
-  --query 'Distribution.DistributionConfig.WebACLId'
 ```
 
 ---
@@ -256,7 +244,8 @@ aws cloudwatch get-metric-statistics \
   --start-time 2026-02-04T00:00:00Z \
   --end-time 2026-02-04T23:59:59Z \
   --period 3600 \
-  --statistics Sum
+  --statistics Sum \
+  --region ap-northeast-1
 ```
 
 ---
@@ -271,8 +260,9 @@ WAFログをS3またはCloudWatch Logsに保存できます。
 # WAFログ設定
 aws wafv2 put-logging-configuration \
   --logging-configuration \
-    ResourceArn=arn:aws:wafv2:us-east-1:123456789012:regional/webacl/FaceAuth-API-WebACL/...,\
-    LogDestinationConfigs=arn:aws:s3:::face-auth-waf-logs-123456789012
+    ResourceArn=arn:aws:wafv2:ap-northeast-1:123456789012:regional/webacl/FaceAuth-API-WebACL/...,\
+    LogDestinationConfigs=arn:aws:s3:::face-auth-waf-logs-123456789012 \
+  --region ap-northeast-1
 ```
 
 #### CloudWatch Logsへのログ保存設定
@@ -281,8 +271,9 @@ aws wafv2 put-logging-configuration \
 # WAFログ設定
 aws wafv2 put-logging-configuration \
   --logging-configuration \
-    ResourceArn=arn:aws:wafv2:us-east-1:123456789012:regional/webacl/FaceAuth-API-WebACL/...,\
-    LogDestinationConfigs=arn:aws:logs:us-east-1:123456789012:log-group:aws-waf-logs-face-auth
+    ResourceArn=arn:aws:wafv2:ap-northeast-1:123456789012:regional/webacl/FaceAuth-API-WebACL/...,\
+    LogDestinationConfigs=arn:aws:logs:ap-northeast-1:123456789012:log-group:aws-waf-logs-face-auth \
+  --region ap-northeast-1
 ```
 
 ---
@@ -324,8 +315,8 @@ curl -X POST https://your-api-endpoint/auth/enroll \
 # CloudFront URLにアクセス
 curl https://your-cloudfront-domain.cloudfront.net/
 
-# 許可されたIP: 200 OK（index.htmlが返される）
-# 許可されていないIP: 403 Forbidden
+# すべてのIP: 200 OK（index.htmlが返される）
+# CloudFrontにはIP制限がありません
 ```
 
 ---
@@ -341,7 +332,8 @@ aws wafv2 update-ip-set \
   --id <ip-set-id> \
   --name FaceAuth-AllowedIPs \
   --addresses "203.0.113.10/32" "198.51.100.0/24" "192.0.2.0/24" "203.0.113.20/32" \
-  --lock-token <lock-token>
+  --lock-token <lock-token> \
+  --region ap-northeast-1
 ```
 
 **注意:** `lock-token`は`get-ip-set`コマンドで取得できます。
@@ -369,7 +361,7 @@ cdk deploy --context allowed_ips="203.0.113.10/32,198.51.100.0/24,203.0.113.20/3
 **原因:**
 1. IP Setに正しいIPアドレスが登録されていない
 2. CIDR表記が間違っている
-3. Web ACLがAPI Gateway/CloudFrontに関連付けられていない
+3. Web ACLがAPI Gatewayに関連付けられていない
 
 **対応:**
 ```bash
@@ -377,7 +369,8 @@ cdk deploy --context allowed_ips="203.0.113.10/32,198.51.100.0/24,203.0.113.20/3
 aws wafv2 get-ip-set \
   --scope REGIONAL \
   --id <ip-set-id> \
-  --name FaceAuth-AllowedIPs
+  --name FaceAuth-AllowedIPs \
+  --region ap-northeast-1
 
 # 2. 自分のIPアドレス確認
 curl https://checkip.amazonaws.com
@@ -388,7 +381,8 @@ aws wafv2 update-ip-set \
   --id <ip-set-id> \
   --name FaceAuth-AllowedIPs \
   --addresses "<your-ip>/32" \
-  --lock-token <lock-token>
+  --lock-token <lock-token> \
+  --region ap-northeast-1
 ```
 
 ---
@@ -430,7 +424,8 @@ cdk deploy
 aws wafv2 put-logging-configuration \
   --logging-configuration \
     ResourceArn=<web-acl-arn>,\
-    LogDestinationConfigs=<log-destination-arn>
+    LogDestinationConfigs=<log-destination-arn> \
+  --region ap-northeast-1
 ```
 
 ---
@@ -470,11 +465,16 @@ aws wafv2 put-logging-configuration \
 | ルール | $1.00/月/ルール |
 | リクエスト | $0.60/100万リクエスト |
 
-**月間コスト例:**
-- Web ACL × 2: $10.00
-- ルール × 4（2ルール × 2 Web ACL）: $4.00
+**月間コスト例（API Gatewayのみ）:**
+- Web ACL × 1: $5.00
+- ルール × 2（IP許可 + レート制限）: $2.00
 - リクエスト（100万リクエスト）: $0.60
-- **合計: 約$14.60/月**
+- **合計: 約$7.60/月**
+
+**CloudFront WAFを削除したことによるコスト削減:**
+- 以前: $14.60/月（API Gateway + CloudFront）
+- 現在: $7.60/月（API Gatewayのみ）
+- **削減額: $7.00/月（約48%削減）**
 
 ---
 
@@ -487,6 +487,6 @@ aws wafv2 put-logging-configuration \
 
 ---
 
-**最終更新:** 2026-02-04  
+**最終更新:** 2026-02-05  
 **作成者:** Face-Auth Development Team  
-**バージョン:** 1.0
+**バージョン:** 2.1 (CloudFront WAF削除、API Gateway WAFのみ)
