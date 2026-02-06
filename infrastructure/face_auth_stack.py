@@ -331,8 +331,8 @@ class FaceAuthStack(Stack):
         Requirements: 10.1, 10.7, Security
         """
         # Lambda@Edge function for IP-based access control
-        # Note: Lambda@Edge must be created in us-east-1, but we create it here
-        # and CDK will automatically replicate it to edge locations
+        # Note: Lambda@Edge does not support environment variables
+        # IP addresses are hardcoded in the function code
         self.viewer_request_lambda = lambda_.Function(
             self, "ViewerRequestFunction",
             runtime=lambda_.Runtime.PYTHON_3_9,
@@ -340,10 +340,7 @@ class FaceAuthStack(Stack):
             code=lambda_.Code.from_asset("lambda_edge"),
             timeout=Duration.seconds(5),
             memory_size=128,
-            description="Lambda@Edge function for CloudFront access control (IP + Geo)",
-            environment={
-                "ALLOWED_IP_RANGES": ",".join(self.allowed_ip_ranges)
-            }
+            description="Lambda@Edge function for CloudFront access control (IP + Geo)"
         )
         
         # Create Lambda@Edge version (required for CloudFront association)
