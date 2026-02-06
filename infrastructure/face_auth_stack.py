@@ -326,10 +326,29 @@ class FaceAuthStack(Stack):
     def _create_frontend_hosting(self):
         """
         Create S3 bucket and CloudFront distribution for frontend hosting
-        with IP-based access control
+        with Lambda@Edge IP restriction and Geo Restriction
         
-        Requirements: 10.1, 10.7
+        Requirements: 10.1, 10.7, Security
         """
+        # Lambda@Edge function for IP-based access control
+        # Note: Lambda@Edge must be created in us-east-1, but we create it here
+        # and CDK will automatically replicate it to edge locations
+        self.viewer_request_lambda = lambda_.Function(
+            self, "ViewerRequestFunction",
+            runtime=lambda_.Runtime.PYTHON_3_9,
+            handler="viewer_request.lambda_handler",
+            code=lambda_.Code.from_asset("lambda_edge"),
+            timeout=Duration.seconds(5),
+            memory_size=128,
+            description="Lambda@Edge function for CloudFront access control (IP + Geo)",
+            environment={
+                "ALLOWED_IP_RANGES": ",".join(self.allowed_ip_ranges)
+            }
+        )
+        
+        # Create Lambda@Edge version (required for CloudFront association)
+        viewer_request_version = self.viewer_request_lambda.current_version
+        
         # S3 bucket for frontend static files
         self.frontend_bucket = s3.Bucket(
             self, "FaceAuthFrontendBucket",
@@ -379,7 +398,7 @@ class FaceAuthStack(Stack):
             )
         )
 
-        # CloudFront distribution
+        # CloudFront distribution with Lambda@Edge and Geo Restriction
         self.frontend_distribution = cloudfront.Distribution(
             self, "FaceAuthFrontendDistribution",
             default_behavior=cloudfront.BehaviorOptions(
@@ -392,7 +411,14 @@ class FaceAuthStack(Stack):
                 cached_methods=cloudfront.CachedMethods.CACHE_GET_HEAD_OPTIONS,
                 compress=True,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
-                response_headers_policy=response_headers_policy
+                response_headers_policy=response_headers_policy,
+                # Lambda@Edge for IP-based access control
+                edge_lambdas=[
+                    cloudfront.EdgeLambda(
+                        function_version=viewer_request_version,
+                        event_type=cloudfront.LambdaEdgeEventType.VIEWER_REQUEST
+                    )
+                ] if self.allowed_ip_ranges != ["0.0.0.0/0"] else []
             ),
             default_root_object="index.html",
             error_responses=[
@@ -409,13 +435,12 @@ class FaceAuthStack(Stack):
                     ttl=Duration.minutes(5)
                 )
             ],
+            # Geo Restriction: 日本のみ許可
+            geo_restriction=cloudfront.GeoRestriction.allowlist("JP"),
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             enabled=True,
-            comment="Face-Auth IdP Frontend Distribution"
+            comment="Face-Auth IdP Frontend Distribution with IP and Geo restrictions"
         )
-        
-        # Store distribution for later WAF association
-        # WAF will be associated in _create_waf() method
 
     def _create_dynamodb_tables(self):
         """
