@@ -326,25 +326,21 @@ class FaceAuthStack(Stack):
     def _create_frontend_hosting(self):
         """
         Create S3 bucket and CloudFront distribution for frontend hosting
-        with Lambda@Edge IP restriction and Geo Restriction
+        with CloudFront Functions IP restriction and Geo Restriction
         
         Requirements: 10.1, 10.7, Security
         """
-        # Lambda@Edge function for IP-based access control
-        # Note: Lambda@Edge does not support environment variables
-        # IP addresses are hardcoded in the function code
-        self.viewer_request_lambda = lambda_.Function(
-            self, "ViewerRequestFunction",
-            runtime=lambda_.Runtime.PYTHON_3_9,
-            handler="viewer_request.lambda_handler",
-            code=lambda_.Code.from_asset("lambda_edge"),
-            timeout=Duration.seconds(5),
-            memory_size=128,
-            description="Lambda@Edge function for CloudFront access control (IP + Geo)"
-        )
+        # CloudFront Function for IP-based access control
+        # Read the function code from file
+        with open("cloudfront_functions/viewer_request.js", "r", encoding="utf-8") as f:
+            viewer_request_code = f.read()
         
-        # Create Lambda@Edge version (required for CloudFront association)
-        viewer_request_version = self.viewer_request_lambda.current_version
+        self.viewer_request_function = cloudfront.Function(
+            self, "ViewerRequestFunction",
+            code=cloudfront.FunctionCode.from_inline(viewer_request_code),
+            comment="IP and Geo restriction for Face-Auth frontend",
+            function_name="FaceAuth-ViewerRequest"
+        )
         
         # S3 bucket for frontend static files
         self.frontend_bucket = s3.Bucket(
@@ -409,11 +405,11 @@ class FaceAuthStack(Stack):
                 compress=True,
                 cache_policy=cloudfront.CachePolicy.CACHING_OPTIMIZED,
                 response_headers_policy=response_headers_policy,
-                # Lambda@Edge for IP-based access control
-                edge_lambdas=[
-                    cloudfront.EdgeLambda(
-                        function_version=viewer_request_version,
-                        event_type=cloudfront.LambdaEdgeEventType.VIEWER_REQUEST
+                # CloudFront Function for IP-based access control
+                function_associations=[
+                    cloudfront.FunctionAssociation(
+                        function=self.viewer_request_function,
+                        event_type=cloudfront.FunctionEventType.VIEWER_REQUEST
                     )
                 ] if self.allowed_ip_ranges != ["0.0.0.0/0"] else []
             ),
@@ -436,7 +432,7 @@ class FaceAuthStack(Stack):
             geo_restriction=cloudfront.GeoRestriction.allowlist("JP"),
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             enabled=True,
-            comment="Face-Auth IdP Frontend Distribution with IP and Geo restrictions"
+            comment="Face-Auth IdP Frontend Distribution with CloudFront Functions IP and Geo restrictions"
         )
 
     def _create_dynamodb_tables(self):
