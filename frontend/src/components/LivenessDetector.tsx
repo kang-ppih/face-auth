@@ -112,9 +112,10 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
   };
 
   // エラーハンドラ
-  const handleError = (error: Error) => {
-    console.error('Liveness detection error:', error);
-    onError(error.message || 'ライブネス検証中にエラーが発生しました');
+  const handleError = (livenessError: any) => {
+    console.error('Liveness detection error:', livenessError);
+    const errorMessage = livenessError?.message || livenessError?.state || 'ライブネス検証中にエラーが発生しました';
+    onError(errorMessage);
   };
 
   if (loading) {
