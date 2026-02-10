@@ -32,8 +32,10 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
 
-  // セッション作成
+  // セッション作成（1回のみ実行、リトライなし）
   useEffect(() => {
+    let isMounted = true;
+
     const createSession = async () => {
       try {
         setLoading(true);
@@ -44,6 +46,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           throw new Error('API URLが設定されていません');
         }
 
+        console.log('Creating liveness session for employee:', employeeId);
+        console.log('API URL:', apiUrl);
+
         const response = await fetch(`${apiUrl}/liveness/session/create`, {
           method: 'POST',
           headers: {
@@ -52,27 +57,51 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           body: JSON.stringify({ employee_id: employeeId }),
         });
 
+        console.log('Response status:', response.status);
+        console.log('Response headers:', response.headers);
+
         if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.message || 'セッション作成に失敗しました');
+          let errorData;
+          try {
+            errorData = await response.json();
+          } catch {
+            errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+          }
+          console.error('API error:', errorData);
+          throw new Error(errorData.message || `セッション作成に失敗しました (${response.status})`);
         }
 
         const data = await response.json();
-        setSessionData({
-          sessionId: data.session_id,
-          expiresAt: data.expires_at,
-        });
+        console.log('Session created:', data);
+
+        if (isMounted) {
+          setSessionData({
+            sessionId: data.session_id,
+            expiresAt: data.expires_at,
+          });
+        }
       } catch (err) {
+        console.error('Session creation error:', err);
         const errorMessage = err instanceof Error ? err.message : '不明なエラーが発生しました';
-        setError(errorMessage);
-        onError(errorMessage);
+        if (isMounted) {
+          setError(errorMessage);
+          onError(errorMessage);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     createSession();
-  }, [employeeId, onError]);
+
+    // クリーンアップ関数（コンポーネントがアンマウントされた場合）
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 空の依存配列 = マウント時に1回のみ実行
 
   // ライブネス検証完了ハンドラ
   const handleAnalysisComplete = async () => {
@@ -131,6 +160,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
     return (
       <div className="liveness-detector-container error">
         <p className="error-message">{error}</p>
+        <p className="error-details">
+          エラーが発生しました。画面を閉じて最初からやり直してください。
+        </p>
       </div>
     );
   }
