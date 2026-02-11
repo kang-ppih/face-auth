@@ -112,22 +112,36 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
 
     try {
       const apiUrl = process.env.REACT_APP_API_URL;
+      const apiKey = process.env.REACT_APP_API_KEY;
+      
+      console.log('Fetching liveness result for session:', sessionData.sessionId);
+      
       const response = await fetch(
         `${apiUrl}/liveness/session/${sessionData.sessionId}/result`,
         {
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
+            'x-api-key': apiKey || '',
           },
         }
       );
 
+      console.log('Liveness result response status:', response.status);
+
       if (!response.ok) {
-        const errorData = await response.json();
+        let errorData;
+        try {
+          errorData = await response.json();
+        } catch {
+          errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
+        }
+        console.error('Liveness result error:', errorData);
         throw new Error(errorData.message || 'ライブネス検証に失敗しました');
       }
 
       const result = await response.json();
+      console.log('Liveness result:', result);
       
       if (result.is_live) {
         onSuccess(sessionData.sessionId);
