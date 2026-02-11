@@ -535,8 +535,11 @@ class FaceAuthStack(Stack):
 
     def _create_cognito_user_pool(self):
         """
-        Create Cognito User Pool for authentication session management
+        Create Cognito User Pool and Identity Pool for authentication session management
         Requirements: 2.3, 3.5
+        
+        Identity Pool is required for FaceLivenessDetector component to obtain
+        temporary AWS credentials for calling Rekognition Face Liveness APIs.
         """
         self.user_pool = cognito.UserPool(
             self, "FaceAuthUserPool",
@@ -573,6 +576,90 @@ class FaceAuthStack(Stack):
             access_token_validity=Duration.hours(1),
             id_token_validity=Duration.hours(1),
             refresh_token_validity=Duration.days(30)
+        )
+
+        # Create Identity Pool for FaceLivenessDetector
+        # This provides temporary AWS credentials for unauthenticated users
+        # to call Rekognition Face Liveness APIs from the frontend
+        self.identity_pool = cognito.CfnIdentityPool(
+            self, "FaceAuthIdentityPool",
+            identity_pool_name="FaceAuthIdentityPool",
+            allow_unauthenticated_identities=True,
+            allow_classic_flow=False,
+            cognito_identity_providers=[
+                cognito.CfnIdentityPool.CognitoIdentityProviderProperty(
+                    client_id=self.user_pool_client.user_pool_client_id,
+                    provider_name=self.user_pool.user_pool_provider_name
+                )
+            ]
+        )
+
+        # Create IAM role for unauthenticated users (for Liveness detection)
+        self.unauthenticated_role = iam.Role(
+            self, "CognitoUnauthenticatedRole",
+            assumed_by=iam.FederatedPrincipal(
+                "cognito-identity.amazonaws.com",
+                conditions={
+                    "StringEquals": {
+                        "cognito-identity.amazonaws.com:aud": self.identity_pool.ref
+                    },
+                    "ForAnyValue:StringLike": {
+                        "cognito-identity.amazonaws.com:amr": "unauthenticated"
+                    }
+                },
+                assume_role_action="sts:AssumeRoleWithWebIdentity"
+            ),
+            description="Role for unauthenticated users to access Rekognition Liveness"
+        )
+
+        # Grant minimal permissions for Rekognition Liveness only
+        self.unauthenticated_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "rekognition:StartFaceLivenessSession"
+                ],
+                resources=["*"]
+            )
+        )
+
+        # Create IAM role for authenticated users
+        self.authenticated_role = iam.Role(
+            self, "CognitoAuthenticatedRole",
+            assumed_by=iam.FederatedPrincipal(
+                "cognito-identity.amazonaws.com",
+                conditions={
+                    "StringEquals": {
+                        "cognito-identity.amazonaws.com:aud": self.identity_pool.ref
+                    },
+                    "ForAnyValue:StringLike": {
+                        "cognito-identity.amazonaws.com:amr": "authenticated"
+                    }
+                },
+                assume_role_action="sts:AssumeRoleWithWebIdentity"
+            ),
+            description="Role for authenticated users"
+        )
+
+        # Authenticated users get same Liveness permissions
+        self.authenticated_role.add_to_policy(
+            iam.PolicyStatement(
+                effect=iam.Effect.ALLOW,
+                actions=[
+                    "rekognition:StartFaceLivenessSession"
+                ],
+                resources=["*"]
+            )
+        )
+
+        # Attach roles to Identity Pool
+        cognito.CfnIdentityPoolRoleAttachment(
+            self, "IdentityPoolRoleAttachment",
+            identity_pool_id=self.identity_pool.ref,
+            roles={
+                "authenticated": self.authenticated_role.role_arn,
+                "unauthenticated": self.unauthenticated_role.role_arn
+            }
         )
 
     def _create_iam_roles(self):
@@ -1241,6 +1328,12 @@ class FaceAuthStack(Stack):
             self, "UserPoolClientId",
             value=self.user_pool_client.user_pool_client_id,
             description="Cognito User Pool Client ID"
+        )
+
+        CfnOutput(
+            self, "IdentityPoolId",
+            value=self.identity_pool.ref,
+            description="Cognito Identity Pool ID for FaceLivenessDetector"
         )
 
         CfnOutput(
