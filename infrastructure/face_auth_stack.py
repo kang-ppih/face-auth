@@ -930,7 +930,9 @@ class FaceAuthStack(Stack):
                     "X-Api-Key",
                     "X-Amz-Security-Token"
                 ],
-                allow_credentials=True,
+                # IMPORTANT: allow_credentials must be False when allow_origins is ["*"]
+                # For production, specify exact CloudFront URL and set to True
+                allow_credentials=False if "*" in self.frontend_origins else True,
                 max_age=Duration.hours(1)
             ),
             deploy_options=apigateway.StageOptions(
