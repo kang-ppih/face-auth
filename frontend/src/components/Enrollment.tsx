@@ -107,8 +107,17 @@ const Enrollment: React.FC<EnrollmentProps> = ({ onSuccess, onError }) => {
         setStep('complete');
         onSuccess(response);
       } else {
-        setErrorMessage(response.error?.message || '登録に失敗しました');
-        onError(response.error?.message || '登録に失敗しました');
+        const errorMsg = response.error?.message || '登録に失敗しました';
+        const errorDetails = (response.error as any)?.details ? 
+          `\n詳細: ${JSON.stringify((response.error as any).details)}` : '';
+        setErrorMessage(errorMsg + errorDetails);
+        onError(errorMsg);
+        
+        // デバッグモードの場合、エラー詳細をコンソールに出力
+        if (debugMode) {
+          console.error('🐛 Enrollment Error:', response.error);
+        }
+        
         setStep('idcard');
       }
     } catch (error: any) {
