@@ -24,12 +24,15 @@ const amplifyConfig = {
 
 Amplify.configure(amplifyConfig);
 
-console.log('Amplify configured:');
-console.log('- Region:', process.env.REACT_APP_AWS_REGION);
-console.log('- User Pool ID:', process.env.REACT_APP_COGNITO_USER_POOL_ID);
-console.log('- User Pool Client ID:', process.env.REACT_APP_COGNITO_CLIENT_ID);
-console.log('- Identity Pool ID:', process.env.REACT_APP_IDENTITY_POOL_ID);
-console.log('- Allow Guest Access: true');
+// Debug mode only
+if (new URLSearchParams(window.location.search).get('debug') === 'true') {
+  console.log('🐛 Amplify configured:');
+  console.log('- Region:', process.env.REACT_APP_AWS_REGION);
+  console.log('- User Pool ID:', process.env.REACT_APP_COGNITO_USER_POOL_ID);
+  console.log('- User Pool Client ID:', process.env.REACT_APP_COGNITO_CLIENT_ID);
+  console.log('- Identity Pool ID:', process.env.REACT_APP_IDENTITY_POOL_ID);
+  console.log('- Allow Guest Access: true');
+}
 
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement

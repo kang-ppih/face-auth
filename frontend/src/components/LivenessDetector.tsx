@@ -31,6 +31,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
   const [sessionData, setSessionData] = useState<SessionData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  const [debugMode] = useState<boolean>(
+    new URLSearchParams(window.location.search).get('debug') === 'true'
+  );
 
   // セッション作成（1回のみ実行、リトライなし）
   useEffect(() => {
@@ -46,8 +49,10 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           throw new Error('API URLが設定されていません');
         }
 
-        console.log('Creating liveness session for employee:', employeeId);
-        console.log('API URL:', apiUrl);
+        if (debugMode) {
+          console.log('🐛 Creating liveness session for employee:', employeeId);
+          console.log('🐛 API URL:', apiUrl);
+        }
 
         const response = await fetch(`${apiUrl}/liveness/session/create`, {
           method: 'POST',
@@ -57,8 +62,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           body: JSON.stringify({ employee_id: employeeId }),
         });
 
-        console.log('Response status:', response.status);
-        console.log('Response headers:', response.headers);
+        if (debugMode) {
+          console.log('🐛 Response status:', response.status);
+        }
 
         if (!response.ok) {
           let errorData;
@@ -67,12 +73,16 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           } catch {
             errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
           }
-          console.error('API error:', errorData);
+          if (debugMode) {
+            console.error('🐛 API error:', errorData);
+          }
           throw new Error(errorData.message || `セッション作成に失敗しました (${response.status})`);
         }
 
         const data = await response.json();
-        console.log('Session created:', data);
+        if (debugMode) {
+          console.log('🐛 Session created:', data);
+        }
 
         if (isMounted) {
           setSessionData({
@@ -81,7 +91,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
           });
         }
       } catch (err) {
-        console.error('Session creation error:', err);
+        if (debugMode) {
+          console.error('🐛 Session creation error:', err);
+        }
         const errorMessage = err instanceof Error ? err.message : '不明なエラーが発生しました';
         if (isMounted) {
           setError(errorMessage);
@@ -114,7 +126,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
       const apiUrl = process.env.REACT_APP_API_URL;
       const apiKey = process.env.REACT_APP_API_KEY;
       
-      console.log('Fetching liveness result for session:', sessionData.sessionId);
+      if (debugMode) {
+        console.log('🐛 Fetching liveness result for session:', sessionData.sessionId);
+      }
       
       const response = await fetch(
         `${apiUrl}/liveness/session/${sessionData.sessionId}/result`,
@@ -127,7 +141,9 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
         }
       );
 
-      console.log('Liveness result response status:', response.status);
+      if (debugMode) {
+        console.log('🐛 Liveness result response status:', response.status);
+      }
 
       if (!response.ok) {
         let errorData;
@@ -136,12 +152,16 @@ const LivenessDetector: React.FC<LivenessDetectorProps> = ({
         } catch {
           errorData = { message: `HTTP ${response.status}: ${response.statusText}` };
         }
-        console.error('Liveness result error:', errorData);
+        if (debugMode) {
+          console.error('🐛 Liveness result error:', errorData);
+        }
         throw new Error(errorData.message || 'ライブネス検証に失敗しました');
       }
 
       const result = await response.json();
-      console.log('Liveness result:', result);
+      if (debugMode) {
+        console.log('🐛 Liveness result:', result);
+      }
       
       if (result.is_live) {
         onSuccess(sessionData.sessionId);
