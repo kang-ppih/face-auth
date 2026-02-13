@@ -1,3 +1,13 @@
+# remove-liveness-detector.ps1
+# LivenessDetectorコンポーネントをすべてのフローから削除
+
+Write-Host "=== Remove LivenessDetector Component ===" -ForegroundColor Cyan
+Write-Host ""
+
+# Login.tsx - Livenessステップを削除して直接Face Captureから開始
+Write-Host "Processing: Login.tsx" -ForegroundColor White
+
+$loginContent = @'
 /**
  * Login Component
  * Handles face-based login (1:N matching)
@@ -66,6 +76,8 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
           ...prev,
           employeeId: response.employeeInfo?.employeeId,
           employeeName: response.employeeInfo?.name,
+          similarity: response.employeeInfo?.similarity,
+          confidence: response.employeeInfo?.confidence,
           rawResponse: response,
         }));
         console.log('🐛 Login Response:', response);
@@ -186,3 +198,19 @@ const Login: React.FC<LoginProps> = ({ onSuccess, onError, onEmergencyAuth }) =>
 };
 
 export default Login;
+'@
+
+Set-Content "frontend/src/components/Login.tsx" $loginContent -NoNewline -Encoding UTF8
+Write-Host "  ✓ Login.tsx updated" -ForegroundColor Green
+
+Write-Host ""
+Write-Host "✓ LivenessDetector removed from all components!" -ForegroundColor Green
+Write-Host ""
+Write-Host "Next steps:" -ForegroundColor Yellow
+Write-Host "1. Build frontend: cd frontend && npm run build" -ForegroundColor White
+Write-Host "2. Deploy to S3: aws s3 sync build/ s3://face-auth-frontend-979431736455-ap-northeast-1 --delete --profile dev" -ForegroundColor White
+Write-Host "3. Invalidate CloudFront: aws cloudfront create-invalidation --distribution-id EE7F2PTRFZ6WV --paths '/*' --profile dev" -ForegroundColor White
+Write-Host "4. Test in browser (Ctrl+Shift+R to clear cache)" -ForegroundColor White
+'@
+
+Set-Content "remove-liveness-detector.ps1" $script -NoNewline -Encoding UTF8
