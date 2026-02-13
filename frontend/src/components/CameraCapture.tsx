@@ -17,14 +17,50 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onError, captu
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     startCamera();
     return () => {
       stopCamera();
+      if (countdownTimerRef.current) {
+        clearInterval(countdownTimerRef.current);
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-capture after camera is ready
+  useEffect(() => {
+    if (isReady && !countdown) {
+      // Start countdown after 1 second delay
+      setTimeout(() => {
+        startCountdown();
+      }, 1000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady]);
+
+  const startCountdown = () => {
+    setCountdown(3);
+    
+    countdownTimerRef.current = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev === null || prev <= 1) {
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+          }
+          // Auto-capture when countdown reaches 0
+          setTimeout(() => {
+            handleCapture();
+          }, 100);
+          return null;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const startCamera = async () => {
     try {
@@ -77,20 +113,21 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onCapture, onError, captu
         />
         <div className="capture-guide">
           {captureMode === 'face' ? (
-            <div className="face-guide">顔を枠内に合わせてください</div>
+            <div className="face-guide">
+              顔を枠内に合わせてください
+              {countdown !== null && (
+                <div className="countdown">{countdown}</div>
+              )}
+            </div>
           ) : (
-            <div className="idcard-guide">社員証を枠内に合わせてください</div>
+            <div className="idcard-guide">
+              社員証を枠内に合わせてください
+              {countdown !== null && (
+                <div className="countdown">{countdown}</div>
+              )}
+            </div>
           )}
         </div>
-      </div>
-      <div className="capture-controls">
-        <button
-          onClick={handleCapture}
-          disabled={!isReady}
-          className="capture-button"
-        >
-          撮影
-        </button>
       </div>
     </div>
   );

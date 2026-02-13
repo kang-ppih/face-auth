@@ -42,9 +42,28 @@
   text-align: center;
 }
 
+.countdown {
+  margin-top: 15px;
+  font-size: 48px;
+  font-weight: bold;
+  color: #00ff00;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+  animation: pulse 1s ease-in-out;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 0.8;
+  }
+}
+
 .capture-controls {
-  display: flex;
-  gap: 10px;
+  display: none; /* Hide manual capture button */
 }
 
 .capture-button {
