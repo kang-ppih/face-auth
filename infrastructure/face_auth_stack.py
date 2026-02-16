@@ -391,7 +391,7 @@ class FaceAuthStack(Stack):
             )
         )
 
-        # CloudFront distribution with Lambda@Edge and Geo Restriction
+        # CloudFront distribution with CloudFront Functions IP restriction and Geo Restriction
         self.frontend_distribution = cloudfront.Distribution(
             self, "FaceAuthFrontendDistribution",
             default_behavior=cloudfront.BehaviorOptions(
@@ -428,11 +428,11 @@ class FaceAuthStack(Stack):
                     ttl=Duration.minutes(5)
                 )
             ],
-            # Geo Restriction: 日本のみ許可
-            geo_restriction=cloudfront.GeoRestriction.allowlist("JP"),
+            # Geo Restriction: Disabled (using CloudFront Functions for IP restriction only)
+            # geo_restriction=cloudfront.GeoRestriction.allowlist("JP"),
             price_class=cloudfront.PriceClass.PRICE_CLASS_100,
             enabled=True,
-            comment="Face-Auth IdP Frontend Distribution with CloudFront Functions IP and Geo restrictions"
+            comment="Face-Auth IdP Frontend Distribution with CloudFront Functions IP restriction"
         )
 
     def _create_dynamodb_tables(self):
@@ -1224,13 +1224,10 @@ class FaceAuthStack(Stack):
     
     def _create_waf(self):
         """
-        Create AWS WAF Web ACL for API Gateway with IP-based access control
+        Create AWS WAF Web ACL for API Gateway and CloudFront
         
-        Note: WAF is only applied to API Gateway (backend) in ap-northeast-1 region.
-        CloudFront (frontend) does not have IP restrictions.
-        
-        CloudFront WAF requires us-east-1 region, which adds complexity to single-stack deployment.
-        For simplicity, we only protect the API Gateway with WAF.
+        API Gateway WAF (REGIONAL scope) protects the backend API in ap-northeast-1.
+        CloudFront WAF (CLOUDFRONT scope) protects the frontend in us-east-1.
         
         Requirements: Security, IP restriction
         """
@@ -1238,10 +1235,11 @@ class FaceAuthStack(Stack):
         if self.allowed_ip_ranges == ["0.0.0.0/0"]:
             return
         
+        # ===== API Gateway WAF (REGIONAL scope in ap-northeast-1) =====
         # Create IP Set for allowed IP addresses (REGIONAL scope for API Gateway)
-        ip_set = wafv2.CfnIPSet(
-            self, "FaceAuthAllowedIPSet",
-            name="FaceAuth-AllowedIPs",
+        api_ip_set = wafv2.CfnIPSet(
+            self, "FaceAuthAPIAllowedIPSet",
+            name="FaceAuth-API-AllowedIPs",
             scope="REGIONAL",  # For API Gateway in ap-northeast-1
             ip_address_version="IPV4",
             addresses=self.allowed_ip_ranges,
@@ -1263,7 +1261,7 @@ class FaceAuthStack(Stack):
                     priority=1,
                     statement=wafv2.CfnWebACL.StatementProperty(
                         ip_set_reference_statement=wafv2.CfnWebACL.IPSetReferenceStatementProperty(
-                            arn=ip_set.attr_arn
+                            arn=api_ip_set.attr_arn
                         )
                     ),
                     action=wafv2.CfnWebACL.RuleActionProperty(
@@ -1309,6 +1307,10 @@ class FaceAuthStack(Stack):
             resource_arn=f"arn:aws:apigateway:{self.region}::/restapis/{self.api.rest_api_id}/stages/{self.api.deployment_stage.stage_name}",
             web_acl_arn=self.api_web_acl.attr_arn
         )
+        
+        # Note: CloudFront WAF is not created here because it requires us-east-1 region.
+        # Instead, we use CloudFront Functions for IP-based access control.
+        # See cloudfront_functions/viewer_request.js for implementation.
 
     def _create_outputs(self):
         """

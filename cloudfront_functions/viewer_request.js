@@ -17,16 +17,8 @@ var ALLOWED_IP_RANGES = [
 function handler(event) {
     var request = event.request;
     var clientIP = event.viewer.ip;
-    var country = request.headers['cloudfront-viewer-country'] 
-        ? request.headers['cloudfront-viewer-country'].value 
-        : '';
     
-    // 日本からのアクセスを許可
-    if (country === 'JP') {
-        return request;
-    }
-    
-    // 特定IPアドレスからのアクセスを許可
+    // 特定IPアドレスからのアクセスのみ許可
     if (isIPAllowed(clientIP)) {
         return request;
     }
@@ -38,7 +30,7 @@ function handler(event) {
         headers: {
             'content-type': { value: 'text/html; charset=utf-8' }
         },
-        body: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>アクセス拒否</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:50px;background-color:#f5f5f5}.error-container{background:white;padding:40px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);max-width:600px;margin:0 auto}h1{color:#d32f2f;margin-bottom:20px}p{color:#666;line-height:1.6}</style></head><body><div class="error-container"><h1>アクセスが拒否されました</h1><p>このサイトは日本国内または許可されたIPアドレスからのみアクセス可能です。</p><p>This site is only accessible from Japan or authorized IP addresses.</p></div></body></html>'
+        body: '<!DOCTYPE html><html><head><meta charset="utf-8"><title>アクセス拒否</title><style>body{font-family:Arial,sans-serif;text-align:center;padding:50px;background-color:#f5f5f5}.error-container{background:white;padding:40px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);max-width:600px;margin:0 auto}h1{color:#d32f2f;margin-bottom:20px}p{color:#666;line-height:1.6}</style></head><body><div class="error-container"><h1>アクセスが拒否されました</h1><p>このサイトは許可されたIPアドレスからのみアクセス可能です。</p><p>This site is only accessible from authorized IP addresses.</p><p style="margin-top:20px;font-size:12px;color:#999">Your IP: ' + clientIP + '</p></div></body></html>'
     };
 }
 
