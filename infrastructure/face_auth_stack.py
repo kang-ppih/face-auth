@@ -430,7 +430,7 @@ class FaceAuthStack(Stack):
             ],
             # Geo Restriction: Disabled (using CloudFront Functions for IP restriction only)
             # geo_restriction=cloudfront.GeoRestriction.allowlist("JP"),
-            price_class=cloudfront.PriceClass.PRICE_CLASS_100,
+            price_class=cloudfront.PriceClass.PRICE_CLASS_200,  # Include Asia for Japan access
             enabled=True,
             comment="Face-Auth IdP Frontend Distribution with CloudFront Functions IP restriction"
         )
